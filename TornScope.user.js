@@ -4,6 +4,7 @@
 // @homepageURL  https://app.tornscope.com
 // @supportURL   https://app.tornscope.com
 // @version      3.1
+// @license      All Rights Reserved
 // @description  Track Torn players: flights, landings, alarms and Premium server tracking. Works with the TornScope site and Torn PDA | Developer: Zeussh (4268037)
 // @match        https://www.torn.com/*
 // @run-at       document-end
