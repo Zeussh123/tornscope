@@ -3,9 +3,8 @@
 // @namespace    tornscope
 // @homepageURL  https://app.tornscope.com
 // @supportURL   https://app.tornscope.com
-// @version      3.2
-// @license      All Rights Reserved
-// @description  Track Torn players: flights, landings, alarms and Premium server tracking. Works with the TornScope site and Torn PDA | Developer: Zeussh (4268037)
+// @version      3.3
+// @description  Track Torn players: flights, landings, alarms, War mode and Premium server tracking. Works with the TornScope site and Torn PDA | Developer: Zeussh (4268037)
 // @match        https://www.torn.com/*
 // @run-at       document-end
 // @grant        GM_getValue
@@ -28,7 +27,7 @@
   const ABROAD = 20000;        // target abroad
   const OTHER = 30000;         // hospital, jail...
   const ONLINE_WINDOW = 300;   // seconds: active within the last 5 min = "online"
-  const VERSION = '3.2';
+  const VERSION = '3.3';
   const TRAVEL_URL = 'https://www.torn.com/page.php?sid=travel';
   const SITE_URL = 'https://app.tornscope.com';
   const LOGO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><g stroke="currentColor" stroke-linecap="round" fill="none"><circle cx="32" cy="32" r="29" stroke-width="3"/><circle cx="32" cy="32" r="19" stroke-width="2" stroke-opacity=".75"/><circle cx="32" cy="32" r="9" stroke-width="2" stroke-opacity=".75"/><path d="M32 4v13M32 47v13M4 32h13M47 32h13" stroke-width="1.5" stroke-opacity=".5"/></g><path d="M32 32L41.0 4.4A29 29 0 0 1 48.8 8.4Z" fill="#16D9F2" fill-opacity="0.07"/><path d="M32 32L48.8 8.4A29 29 0 0 1 55.2 14.5Z" fill="#16D9F2" fill-opacity="0.12"/><path d="M32 32L55.2 14.5A29 29 0 0 1 59.3 22.3Z" fill="#16D9F2" fill-opacity="0.19"/><path d="M32 32L59.3 22.3A29 29 0 0 1 61.0 31.0Z" fill="#16D9F2" fill-opacity="0.3"/><path d="M32 32L61.0 31.0" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="47" cy="19" r="3.6" fill="var(--blip,#fff)" fill-opacity=".2"/><circle cx="47" cy="19" r="2.3" fill="var(--blip,#fff)"/><circle cx="41" cy="11.5" r="1.5" fill="var(--blip,#fff)" fill-opacity=".85"/><circle cx="32" cy="32" r="3" fill="currentColor"/></svg>';
@@ -264,6 +263,7 @@
     const now = Date.now();
     if (now - lastLock > 5000) { takeLock(); lastLock = now; }
     reqLog = reqLog.filter(t => now - t < 60000);
+    if (warOn()) { warTick(now); return; }
     const due = targets.filter(t => ensureLive(t).nextAt <= now && !live[t.id].busy)
                        .sort((a, b) => live[a.id].nextAt - live[b.id].nextAt);
     let fired = 0;
@@ -416,7 +416,7 @@
   function start() {
     if (unverified()) { msg(sync.state === 'auth' ? 'Overlay token rejected — see Settings' : 'Waiting for the sync server…'); return; }
     if (!getApiKey()) { msg('Enter your API key in Settings, or configure it in Torn PDA'); showTab('s'); return; }
-    if (!targets.length) { msg('Add at least one target'); return; }
+    if (warOn() ? !W.fid : !targets.length) { msg(warOn() ? 'War mode: enter the enemy faction ID' : 'Add at least one target'); if (warOn()) showTab('w'); return; }
     if (!lockOk()) { msg('Already active in another tab'); return; }
     ensureAudio();
     try { if (!isPDA() && typeof Notification !== 'undefined' && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {}
@@ -543,7 +543,7 @@
 
   function maybeAutoStart() {
     if (running || unverified()) return;
-    if (store.get('running', false) === true && lockOk() && getApiKey() && targets.length) start();
+    if (store.get('running', false) === true && lockOk() && getApiKey() && (targets.length || (warOn() && W.fid))) start();
   }
 
   function syncNow(reason) {
@@ -886,18 +886,32 @@
     </div>
     <div class="bd">
       <nav class="tabs">
-        <button data-tab="t" class="on">Targets</button><button data-tab="s">Settings</button>
+        <button data-tab="t" class="on">Targets</button><button data-tab="w">⚔ War</button><button data-tab="s">Settings</button>
       </nav>
       <section class="pn on" id="p-t">
+        <div class="hint" id="wban" style="display:none;color:#fbbf24;margin:0 0 6px"></div>
         <div id="cards"></div>
         <div class="add"><input type="text" id="nid" placeholder="Player ID" inputmode="numeric"><button class="pr" id="addb">Add</button></div>
         <div class="ft"><span class="dot" id="sdot"></span><span id="syn"></span></div>
         <div class="hint" id="cap"></div>
       </section>
+      <section class="pn" id="p-w">
+        <label class="ck"><input type="checkbox" id="won"> War mode <span class="hint" style="display:inline">(pauses normal targets)</span></label>
+        <label>Enemy faction ID<input type="text" id="wfid" placeholder="Faction ID" inputmode="numeric"></label>
+        <div class="bar2"><button class="pr" id="wsync">Sync</button><button class="sc" id="wfind">Find my enemy</button></div>
+        <label>Your aircraft<select id="wplane"></select></label>
+        <label class="ck"><input type="checkbox" id="wall"> Show everyone</label>
+        <div class="hint" id="wsum" style="margin:6px 0"></div>
+        <div class="hint" id="wsave" style="display:none"></div>
+        <div id="wlist"></div>
+        <div class="hint" id="wfeed" style="margin-top:6px"></div>
+        <div class="hint" id="wst"></div>
+        <div class="hint">One request reads the whole faction (3 per minute). Sync replaces the list. Aircraft is deduced when the take-off is seen; Premium also fills it in from the server.</div>
+      </section>
       <section class="pn" id="p-s">
         <div class="grp"><h4>Torn</h4>
           <label>API key (Public access level)<input type="password" id="key" placeholder="API key"></label>
-          <div class="tt"><div><b>Key storage:</b> Your key stays in this browser or Torn PDA and is sent only to api.torn.com, never to our server.</div><div><b>Data stored:</b> Only if you link a TornScope account: your watched players and the status changes seen for them.</div><div><b>Shared:</b> Never sold, published or given to third parties.</div><div><b>Purpose:</b> Alerts and history for your targets. Public access level is enough.</div><a id="terms" target="_blank" rel="noopener noreferrer">Full details ↗</a></div></div>
+          <div class="tt"><div><b>Key storage:</b> Your key stays in this browser or Torn PDA and is sent only to api.torn.com, never to our server.</div><div><b>Data stored:</b> Only if you link a TornScope account: your watched players and the status changes seen for them.</div><div><b>Shared:</b> Never sold, published or given to third parties.</div><div><b>Purpose:</b> Alerts and history for your targets. Public access level is enough.</div><div><b>War mode:</b> reads the public member list of the enemy faction you choose, only from api.torn.com.</div><a id="terms" target="_blank" rel="noopener noreferrer">Full details ↗</a></div></div>
         <div class="grp"><h4>TornScope account</h4>
           <div class="hint" id="sst" style="margin:0 0 6px"></div>
           <label>Overlay token<input type="password" id="otk" placeholder="Paste the token from the site" autocomplete="off" spellcheck="false"></label>
@@ -924,6 +938,226 @@
   const hhmm = (sec) => new Date(sec * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   let msgTimer;
   function msg(t) { $('#msg').textContent = t; clearTimeout(msgTimer); msgTimer = setTimeout(() => { $('#msg').textContent = ''; }, 5000); }
+
+
+  /* ================= War mode (enemy faction roster) ================= */
+  // One request returns the whole enemy faction (status, travel, last action): no per-member scanning.
+  // While War mode is on, normal target tracking is paused so the request budget (API_CAP) is never exceeded.
+  const WAR_EVERY = 20000;           // ms between roster reads (3 requests / minute)
+  const W = (() => {
+    const s = store.get('war', null) || {};
+    return { on: !!s.on, fid: /^\d{1,8}$/.test(String(s.fid || '')) ? String(s.fid) : '', plane: PLANES.some(([n]) => n === s.plane) ? s.plane : 'Airstrip',
+      all: !!s.all, members: (s.members && typeof s.members === 'object') ? s.members : {}, name: s.name || '', pollAt: Number(s.pollAt) || 0,
+      nextAt: 0, busy: false, err: '', feed: [], lastBeep: 0, srvAt: 0 };
+  })();
+  const warOn = () => W.on;
+  const warSave = () => store.set('war', { on: W.on, fid: W.fid, plane: W.plane, all: W.all, members: W.members, name: W.name, pollAt: W.pollAt });
+
+  // Which aircraft fits the window [last check on the ground, now]? Only one match is accepted.
+  function warInfer(country, untilSec, winStart, winEnd) {
+    const base = country ? BASE_MIN[country] : 0;
+    if (!base || !(untilSec > winEnd) || !(winStart > 0)) return null;
+    const found = [];
+    PLANES.forEach(([name, f]) => {
+      const duration = Math.round(base * f * 60), takeoff = untilSec - duration;
+      if (takeoff >= winStart - 5 && takeoff <= winEnd + 5) found.push({ plane: name, takeoff, duration });
+    });
+    const distinct = found.filter((v, i) => found.findIndex(w => Math.abs(w.takeoff - v.takeoff) <= 30) === i);
+    if (distinct.length !== 1) return null;
+    const h = distinct[0];
+    return { plane: h.plane, takeoff: Math.min(winEnd, Math.max(winStart, h.takeoff)), dur: h.duration };
+  }
+
+  // Enemy faction of a faction: ranked war first, then territory / raid wars (same logic as the server).
+  function warPick(data, myFid, nowSec) {
+    const list = [];
+    const add = (id, name, kind, start, end) => {
+      const fid = String(id == null ? '' : id);
+      if (!/^\d+$/.test(fid) || fid === '0' || fid === String(myFid)) return;
+      if (list.some(x => x.id === fid && x.kind === kind)) return;
+      list.push({ id: fid, name: typeof name === 'string' ? name.slice(0, 40) : '', kind, start: Number(start) || 0, end: Number(end) || 0 });
+    };
+    const objs = (v) => (v && typeof v === 'object') ? Object.values(v) : [];
+    objs(data && data.ranked_wars).forEach(w => { if (!w || typeof w !== 'object') return; const info = w.war || {};
+      Object.entries(w.factions || {}).forEach(([fid, f]) => add(fid, f && f.name, 'ranked', info.start, info.end)); });
+    objs(data && data.territory_wars).forEach(w => { if (!w || typeof w !== 'object') return;
+      add(w.assaulting_faction, w.assaulting_faction_name, 'territory', w.started || w.start, w.ends || w.end);
+      add(w.defending_faction, w.defending_faction_name, 'territory', w.started || w.start, w.ends || w.end); });
+    objs(data && data.raid_wars).forEach(w => { if (!w || typeof w !== 'object') return;
+      add(w.aggressor_faction, w.aggressor_faction_name, 'raid', w.start || w.started, w.end || w.ends);
+      add(w.defender_faction, w.defender_faction_name, 'raid', w.start || w.started, w.end || w.ends); });
+    const rank = { ranked: 0, territory: 1, raid: 2 };
+    const act = list.filter(x => !x.end || x.end > nowSec).sort((a, b) => rank[a.kind] - rank[b.kind] || b.start - a.start);
+    return act[0] || null;
+  }
+
+  // One Torn API call (counts in the 90 / minute budget). Resolves { data } or { error }.
+  async function warGet(path, extra) {
+    reqLog.push(Date.now());
+    const url = `https://api.torn.com/${path}?${extra}&key=${encodeURIComponent(getApiKey())}&comment=TravelWatcher`;
+    try {
+      let d;
+      if (isPDA()) {
+        const r = await window.PDA_httpGet(url);
+        if (!r || (r.status && (r.status < 200 || r.status >= 300))) return { error: 'PDA HTTP error' };
+        d = JSON.parse(r.responseText || '{}');
+      } else {
+        const r = await fetch(url); if (!r.ok) return { error: 'HTTP ' + r.status };
+        d = await r.json();
+      }
+      if (d && d.error) { if ([2, 10, 13, 18].includes(d.error.code)) { stop(true, 'API key invalid or disabled'); } return { error: `API ${d.error.code}: ${d.error.error}`, code: d.error.code }; }
+      return { data: d };
+    } catch (e) { return { error: 'Network/PDA error' }; }
+  }
+
+  function warMember(id, m, now) {
+    const st = (m && m.status) || {}, la = (m && m.last_action) || {};
+    const desc = typeof st.description === 'string' ? st.description : '';
+    const ret = isReturn(desc);
+    return { id: String(id), name: String(m && m.name || '').slice(0, 40), level: Math.max(0, Math.floor(Number(m && m.level) || 0)),
+      state: String(st.state || '').slice(0, 24), desc: desc.slice(0, 120), until: Math.max(0, Math.floor(Number(st.until) || 0)),
+      la: Math.max(0, Math.floor(Number(la.timestamp) || 0)), country: destOf(desc) || '', ret,
+      plane: '', src: '', takeoff: 0, dur: 0, hosp: 0 };
+  }
+
+  function warAlert(text) {
+    W.feed.unshift({ at: Date.now(), text }); W.feed.length = Math.min(W.feed.length, 12);
+    const c = cfg();
+    if (c.sound && Date.now() - W.lastBeep > 3000) { W.lastBeep = Date.now(); beep(); }  // one beep, never a looping alarm
+    if (c.notif) notify('TornScope · War', text);
+  }
+
+  // Replace the roster with a fresh read. Alerts only for changes seen between two reads (never on the first read).
+  function warApply(data, replace) {
+    const raw = data && data.members;
+    const entries = Array.isArray(raw) ? raw.map(m => [m && m.id, m]) : (raw && typeof raw === 'object') ? Object.entries(raw) : [];
+    if (!entries.length) { W.err = 'No members in the answer'; return false; }
+    const now = Math.floor(Date.now() / 1000), prevAt = W.pollAt, old = W.members, had = Object.keys(old).length > 0 && !replace, next = {};
+    for (const [id, m] of entries) {
+      if (!/^\d+$/.test(String(id)) || !m) continue;
+      const n = warMember(id, m, now), p = old[id];
+      if (p && n.state === 'Traveling' && p.state === 'Traveling' && Math.abs(p.until - n.until) <= 3) { n.plane = p.plane; n.src = p.src; n.takeoff = p.takeoff; n.dur = p.dur; }
+      else if (p && p.state !== 'Traveling' && n.state === 'Traveling' && n.country && prevAt) {
+        const inf = warInfer(n.country, n.until, prevAt, now);
+        if (inf) { n.plane = inf.plane; n.src = 'inferred'; n.takeoff = inf.takeoff; n.dur = inf.dur; }
+      }
+      if (p && n.state === 'Hospital' && p.state === 'Hospital' && p.until === n.until) n.hosp = p.hosp;
+      if (had && p && p.state !== 'Traveling' && n.state === 'Traveling' && n.until > now) {
+        const when = hhmm(n.until), pl = n.plane ? ' · ' + n.plane : '';
+        warAlert(n.ret ? `${n.name || id} is returning to Torn, lands ${when}${pl}` : `${n.name || id} takes off → ${n.country || 'abroad'}, lands ${when}${pl}`);
+      }
+      next[id] = n;
+    }
+    W.members = next; W.pollAt = now; W.err = '';
+    warSave(); return true;
+  }
+
+  // Server side data (Premium): aircraft seen while this browser was closed.
+  async function warServerMerge() {
+    if (!getOverlayToken() || !W.fid) return;
+    const r = await overlayRequest('GET', '/overlay/war');
+    if (!isOk(r) || !Array.isArray(r.data.members)) return;
+    for (const s of r.data.members) {
+      const m = W.members[String(s.id)];
+      if (m && m.state === 'Traveling' && !m.plane && s.plane && Math.abs((Number(s.until) || 0) - m.until) <= 120) {
+        m.plane = String(s.plane); m.src = 'server'; m.takeoff = Number(s.takeoffAt) || 0; m.dur = Number(s.duration) || 0;
+      }
+    }
+  }
+  function warPushConfig() {
+    if (!getOverlayToken()) return;
+    overlayRequest('PUT', '/overlay/war', { factionId: Number(W.fid) || 0, enabled: W.on && !!W.fid }).then(() => {}, () => {});
+  }
+
+  async function warPoll(manual) {
+    if (W.busy || !W.fid) return;
+    if (!getApiKey()) { W.err = 'Enter your API key in Settings'; showTab('s'); return; }
+    W.busy = true;
+    try {
+      const r = await warGet('faction/' + W.fid, `selections=basic&timestamp=${Math.floor(Date.now() / 1000)}`);
+      if (r.data) {
+        if (warApply(r.data, !!manual)) { W.name = String(r.data.name || W.name || '').slice(0, 40); warSave(); if (Date.now() - W.srvAt > 60000) { W.srvAt = Date.now(); warServerMerge().then(() => {}, () => {}); } }
+        W.nextAt = Date.now() + WAR_EVERY;
+      } else { W.err = r.error; W.nextAt = Date.now() + (r.code === 5 || r.code === 8 ? 60000 : 30000); }
+    } finally { W.busy = false; render(); }
+  }
+
+  // Called every second by the engine while War mode is on (instead of the normal targets).
+  function warTick(now) {
+    if (W.fid && !W.busy && now >= W.nextAt && reqLog.length < API_CAP) { W.nextAt = now + WAR_EVERY; warPoll(false); }
+    const sec = now / 1000;
+    for (const id in W.members) {
+      const m = W.members[id];
+      if (m.state === 'Hospital' && m.until > sec && m.until - sec <= 60 && m.hosp !== m.until) {
+        m.hosp = m.until; warAlert(`${m.name || id} leaves hospital in ${Math.round(m.until - sec)} s`);
+      }
+    }
+  }
+
+  async function warFind() {
+    if (!getApiKey()) { msg('Enter your API key in Settings'); showTab('s'); return; }
+    msg('Looking for your enemy…');
+    const me = await warGet('user/', 'selections=profile');
+    const myFid = me.data && me.data.faction ? Math.floor(Number(me.data.faction.faction_id) || 0) : 0;
+    if (!me.data) return msg('Could not read your profile: ' + me.error);
+    if (!myFid) return msg('You are not in a faction. Enter the enemy ID by hand.');
+    const mine = await warGet('faction/' + myFid, 'selections=basic');
+    if (!mine.data) return msg('Could not read your faction: ' + mine.error);
+    const best = warPick(mine.data, myFid, Math.floor(Date.now() / 1000));
+    if (!best) return msg('No war found for your faction. Enter the enemy ID by hand.');
+    W.fid = best.id; W.name = best.name; $('#wfid').value = W.fid; warSave(); warPushConfig();
+    msg(`Enemy found: ${best.name || best.id} (${best.kind} war). Press Sync.`);
+    render();
+  }
+
+  function warSyncClick() {
+    const v = ($('#wfid').value || '').trim();
+    if (!/^\d{1,8}$/.test(v)) return msg('Enter the enemy faction ID (digits only)');
+    if (v !== W.fid) { W.fid = v; W.name = ''; W.members = {}; W.pollAt = 0; }
+    warSave(); warPushConfig(); msg('Reading the enemy faction…');
+    warPoll(true);
+  }
+  function warToggle(on) {
+    W.on = !!on; warSave(); warPushConfig();
+    if (W.on) { W.nextAt = 0; msg(W.fid ? (running ? 'War mode on: normal tracking paused' : 'War mode on. Press ▶ to follow the enemy') : 'War mode on. Enter the enemy faction ID, then Sync'); }
+    else msg('War mode off: normal tracking resumes');
+    render();
+  }
+
+  const WAR_COLORS = { Traveling: '#16d9f2', Abroad: '#60a5fa', Hospital: '#f87171', Okay: '#34d399' };
+  const ago = (sec) => { const s = Math.max(0, Date.now() / 1000 - sec); return s < 90 ? 'now' : s < 5400 ? Math.round(s / 60) + ' min ago' : s < 129600 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' d ago'; };
+  const myFlight = (country) => { const f = (PLANES.find(([n]) => n === W.plane) || [0, 1])[1]; return BASE_MIN[country] ? Math.round(BASE_MIN[country] * f * 60) : 0; };
+
+  function renderWar() {
+    if (!$('#p-w')) return;
+    const ban = $('#wban'); ban.style.display = W.on ? 'block' : 'none';
+    ban.textContent = W.on ? '⚔ War mode is on: normal targets are paused. Open the War tab.' : '';
+    $('#wsave').textContent = '';
+    if (!$('#p-w').classList.contains('on')) return;
+    const list = Object.values(W.members), sec = Date.now() / 1000;
+    const cnt = (s) => list.filter(m => m.state === s).length;
+    $('#wsum').textContent = list.length ? `${W.name ? W.name + ' · ' : ''}${list.length} members · ✈ ${cnt('Traveling')} · abroad ${cnt('Abroad')} · hospital ${cnt('Hospital')}` : 'No list yet. Enter the enemy faction ID and press Sync.';
+    $('#wst').innerHTML = W.err ? `<span class="err">${esc(W.err)}</span>` : (W.pollAt ? `Updated ${hhmm(W.pollAt)} · every ${WAR_EVERY / 1000} s${running ? '' : ' · paused (press ▶)'}` : '');
+    const rank = (m) => m.state === 'Traveling' ? 0 : m.state === 'Hospital' ? 1 : m.state === 'Abroad' ? 2 : 3;
+    const shown = list.filter(m => W.all || rank(m) < 3).sort((a, b) => rank(a) - rank(b) || (rank(a) < 2 ? a.until - b.until : (b.la - a.la)));
+    $('#wlist').innerHTML = shown.map(m => {
+      const c = WAR_COLORS[m.state] || '#64748b';
+      let line = '', gap = '';
+      if (m.state === 'Traveling') {
+        const left = m.until - sec;
+        line = `${m.ret ? '← Torn' : '→ ' + esc(m.country || m.desc || 'abroad')} <i>· lands ${esc(hhmm(m.until))} (in ${fmtDur(left)})</i> · ${m.plane ? '✈ ' + esc(m.plane) + (m.src ? ' <i>(' + esc(m.src) + ')</i>' : '') : '<i>aircraft unknown</i>'}`;
+        const mine = !m.ret && m.country ? myFlight(m.country) : 0;
+        if (mine && left > 0) {
+          const diff = m.until - (sec + mine), leaveIn = m.until - mine - sec;
+          gap = `Leave now (${esc(W.plane)}): you land <b class="${diff >= 0 ? 'v' : 'e'}">${fmtDur(Math.abs(diff))} ${diff >= 0 ? 'before' : 'after'}</b> him · ${leaveIn > 0 ? 'leave in <b class="v">' + fmtDur(leaveIn) + '</b> to land together' : 'too late to land together'}`;
+        }
+      } else if (m.state === 'Hospital') line = m.until > sec ? `Hospital <i>· out in ${fmtDur(m.until - sec)}</i>` : 'Hospital <i>· out</i>';
+      else line = esc(m.desc || m.state || '—');
+      return `<div class="card" style="--c:${c}"><div class="top"><span class="tn">${esc(m.name || m.id)}</span><span class="id">[${esc(m.id)}] L${m.level}</span><span class="st">${esc(m.state === 'Traveling' ? '✈ Traveling' : m.state || '—')}</span></div>` +
+        `<div class="ln">${line}</div><div class="mt"><span>active ${esc(ago(m.la))}</span>${gap ? '<span>' + gap + '</span>' : ''}<a class="go" href="https://www.torn.com/profiles.php?XID=${esc(m.id)}" target="_blank" rel="noopener noreferrer">Profile ↗</a></div></div>`;
+    }).join('') || (list.length ? '<div class="empty">Nobody is moving. Tick “Show everyone” to see the whole list.</div>' : '');
+    $('#wfeed').innerHTML = W.feed.map(f => `<div><i>${esc(new Date(f.at).toLocaleTimeString('en-GB'))}</i> ${esc(f.text)}</div>`).join('');
+  }
 
   function showTab(k) {
     root.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === k));
@@ -1029,7 +1263,7 @@
   }
 
   function render() {
-    renderHeader(); renderSync();
+    renderHeader(); renderSync(); renderWar();
     const dotEl = $('#sdot');
     dotEl.className = 'dot ' + (sync.state === 'ok' ? 'ok' : (sync.state === 'offline' || sync.state === 'connecting') ? 'warn' : (sync.state === 'auth' || sync.state === 'error') ? 'bad' : '');
     // Rebuilding the cards every second closes an open aircraft dropdown on mobile.
@@ -1052,6 +1286,8 @@
     if (b.id === 'run') return running ? stop(true) : start();
     if (b.id === 'mn') { const m = $('#hud').classList.toggle('min'); store.set('min', m); return; }
     if (b.id === 'addb') return addTarget();
+    if (b.id === 'wsync') return warSyncClick();
+    if (b.id === 'wfind') return warFind();
     if (b.id === 'tst') {
       startAlarm({ name: 'Test', dest: 'Mexico' });
       const go = () => notify('TornScope', 'Notification test');
@@ -1059,6 +1295,12 @@
       return;
     }
   });
+  $('#wplane').innerHTML = PLANES.map(([n]) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  $('#wplane').value = W.plane; $('#wfid').value = W.fid; $('#won').checked = W.on; $('#wall').checked = W.all;
+  $('#won').addEventListener('change', (e) => warToggle(e.target.checked));
+  $('#wall').addEventListener('change', (e) => { W.all = e.target.checked; warSave(); render(); });
+  $('#wplane').addEventListener('change', (e) => { W.plane = e.target.value; warSave(); render(); });
+  $('#wfid').addEventListener('keydown', (e) => { if (e.key === 'Enter') warSyncClick(); });
   $('#nid').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTarget(); });
   root.addEventListener('change', (e) => {
     const sel = e.target.closest('select[data-plane]');
@@ -1185,7 +1427,7 @@
   });
 })();
 console.log(
-  '[TornScope 3.2] PDA_httpGet:',
+  '[TornScope 3.3] PDA_httpGet:',
   typeof window.PDA_httpGet,
   '| PDA_httpPost:',
   typeof window.PDA_httpPost
