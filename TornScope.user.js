@@ -3,8 +3,7 @@
 // @namespace    tornscope
 // @homepageURL  https://app.tornscope.com
 // @supportURL   https://app.tornscope.com
-// @version      3.1
-// @license      All Rights Reserved
+// @version      3.2
 // @description  Track Torn players: flights, landings, alarms and Premium server tracking. Works with the TornScope site and Torn PDA | Developer: Zeussh (4268037)
 // @match        https://www.torn.com/*
 // @run-at       document-end
@@ -28,7 +27,7 @@
   const ABROAD = 20000;        // target abroad
   const OTHER = 30000;         // hospital, jail...
   const ONLINE_WINDOW = 300;   // seconds: active within the last 5 min = "online"
-  const VERSION = '3.1';
+  const VERSION = '3.2';
   const TRAVEL_URL = 'https://www.torn.com/page.php?sid=travel';
   const SITE_URL = 'https://app.tornscope.com';
   const LOGO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><g stroke="currentColor" stroke-linecap="round" fill="none"><circle cx="32" cy="32" r="29" stroke-width="3"/><circle cx="32" cy="32" r="19" stroke-width="2" stroke-opacity=".75"/><circle cx="32" cy="32" r="9" stroke-width="2" stroke-opacity=".75"/><path d="M32 4v13M32 47v13M4 32h13M47 32h13" stroke-width="1.5" stroke-opacity=".5"/></g><path d="M32 32L41.0 4.4A29 29 0 0 1 48.8 8.4Z" fill="#16D9F2" fill-opacity="0.07"/><path d="M32 32L48.8 8.4A29 29 0 0 1 55.2 14.5Z" fill="#16D9F2" fill-opacity="0.12"/><path d="M32 32L55.2 14.5A29 29 0 0 1 59.3 22.3Z" fill="#16D9F2" fill-opacity="0.19"/><path d="M32 32L59.3 22.3A29 29 0 0 1 61.0 31.0Z" fill="#16D9F2" fill-opacity="0.3"/><path d="M32 32L61.0 31.0" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="47" cy="19" r="3.6" fill="var(--blip,#fff)" fill-opacity=".2"/><circle cx="47" cy="19" r="2.3" fill="var(--blip,#fff)"/><circle cx="41" cy="11.5" r="1.5" fill="var(--blip,#fff)" fill-opacity=".85"/><circle cx="32" cy="32" r="3" fill="currentColor"/></svg>';
@@ -826,6 +825,7 @@
   button.sc:hover,a.sc:hover{background:rgba(22,217,242,.22)}
   button.dg{background:rgba(248,113,113,.12);color:#fca5a5}
   .hint{margin-top:6px;color:#6d7a93;font-size:10.5px}
+  .tt{margin-top:6px;color:#6d7a93;font-size:10.5px;line-height:1.45}.tt div{margin:0 0 3px}.tt b{color:#9fb0cc;font-weight:600}.tt a{color:#67e8f9}.mob .tt{font-size:12px}
   .ft{display:flex;align-items:center;gap:7px;margin-top:9px;color:var(--mut);font-size:11px}
   .dot{width:7px;height:7px;border-radius:50%;background:#5b6478;flex:none}.dot.ok{background:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.15)}.dot.warn{background:#fbbf24}.dot.bad{background:#f87171}
   .pnote{display:none;align-items:center;gap:8px;margin:2px 10px 9px;padding:7px 10px;border-radius:10px;font-size:11.5px}
@@ -896,7 +896,7 @@
       <section class="pn" id="p-s">
         <div class="grp"><h4>Torn</h4>
           <label>API key (Public access level)<input type="password" id="key" placeholder="API key"></label>
-          <div class="hint">Your key stays on this device and only goes to Torn.</div></div>
+          <div class="tt"><div><b>Key storage:</b> Your key stays in this browser or Torn PDA and is sent only to api.torn.com, never to our server.</div><div><b>Data stored:</b> Only if you link a TornScope account: your watched players and the status changes seen for them.</div><div><b>Shared:</b> Never sold, published or given to third parties.</div><div><b>Purpose:</b> Alerts and history for your targets. Public access level is enough.</div><a id="terms" target="_blank" rel="noopener noreferrer">Full details ↗</a></div></div>
         <div class="grp"><h4>TornScope account</h4>
           <div class="hint" id="sst" style="margin:0 0 6px"></div>
           <label>Overlay token<input type="password" id="otk" placeholder="Paste the token from the site" autocomplete="off" spellcheck="false"></label>
@@ -1008,7 +1008,7 @@
 
     // site + Premium
     const base = siteBase || WORKER_URL;
-    $('#site').href = base + '/dashboard'; $('#site2').href = base + '/dashboard';
+    $('#site').href = base + '/dashboard'; $('#site2').href = base + '/dashboard'; $('#terms').href = base + '/terms';
     const pc = $('#prem'), ps = premiumState(), pn = $('#pnote');
     pc.href = base + '/dashboard#/premium';
     if (!account || !ps) { pc.style.display = 'none'; pn.className = 'pnote'; $('#sprem').textContent = account ? 'Premium: status unknown (not synced yet).' : ''; return; }
@@ -1184,7 +1184,7 @@
   });
 })();
 console.log(
-  '[TornScope 3.1] PDA_httpGet:',
+  '[TornScope 3.2] PDA_httpGet:',
   typeof window.PDA_httpGet,
   '| PDA_httpPost:',
   typeof window.PDA_httpPost
