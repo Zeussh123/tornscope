@@ -2,6 +2,11 @@
 
 Newest first. Each hourly check-up adds one small, tested step.
 
+## v3.7 – 2026-10-23
+### Added
+- Country flags next to destinations (targets and War list) and icons on the status chips
+  (Okay, Abroad, Hospital, Jail). Emoji only: no new network host.
+
 ## v3.6 – 2026-10-23
 ### Fixed
 - **Scroll jump on refresh**: the target list, War list, War feed and Premium note were rebuilt

@@ -3,7 +3,7 @@
 // @namespace    tornscope
 // @homepageURL  https://app.tornscope.com
 // @supportURL   https://app.tornscope.com
-// @version      3.6
+// @version      3.7
 // @description  Track Torn players: flights, landings, alarms, War mode and Premium server tracking. Works with the TornScope site and Torn PDA | Developer: Zeussh (4268037)
 // @match        https://www.torn.com/*
 // @run-at       document-end
@@ -27,7 +27,7 @@
   const ABROAD = 20000;        // target abroad
   const OTHER = 30000;         // hospital, jail...
   const ONLINE_WINDOW = 300;   // seconds: active within the last 5 min = "online"
-  const VERSION = '3.6';
+  const VERSION = '3.7';
   const TRAVEL_URL = 'https://www.torn.com/page.php?sid=travel';
   const SITE_URL = 'https://app.tornscope.com';
   const LOGO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><g stroke="currentColor" stroke-linecap="round" fill="none"><circle cx="32" cy="32" r="29" stroke-width="3"/><circle cx="32" cy="32" r="19" stroke-width="2" stroke-opacity=".75"/><circle cx="32" cy="32" r="9" stroke-width="2" stroke-opacity=".75"/><path d="M32 4v13M32 47v13M4 32h13M47 32h13" stroke-width="1.5" stroke-opacity=".5"/></g><path d="M32 32L41.0 4.4A29 29 0 0 1 48.8 8.4Z" fill="#16D9F2" fill-opacity="0.07"/><path d="M32 32L48.8 8.4A29 29 0 0 1 55.2 14.5Z" fill="#16D9F2" fill-opacity="0.12"/><path d="M32 32L55.2 14.5A29 29 0 0 1 59.3 22.3Z" fill="#16D9F2" fill-opacity="0.19"/><path d="M32 32L59.3 22.3A29 29 0 0 1 61.0 31.0Z" fill="#16D9F2" fill-opacity="0.3"/><path d="M32 32L61.0 31.0" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="47" cy="19" r="3.6" fill="var(--blip,#fff)" fill-opacity=".2"/><circle cx="47" cy="19" r="2.3" fill="var(--blip,#fff)"/><circle cx="41" cy="11.5" r="1.5" fill="var(--blip,#fff)" fill-opacity=".85"/><circle cx="32" cy="32" r="3" fill="currentColor"/></svg>';
@@ -1166,7 +1166,7 @@
       if (m.state === 'Traveling') {
         const L = warLand(m), left = L ? L.at - sec : 0, planeTxt = PTYPE[m.ptype] ? '✈ ' + esc(PTYPE[m.ptype]) : m.ptype ? '✈ ' + esc(m.ptype) : '<i>aircraft unknown</i>';
         const lands = L ? (left > 0 ? `lands ~${esc(hhmm(L.at))} (in ${fmtDur(left)})` + (L.alt ? ` · ~${esc(hhmm(L.alt))} if booked` : '') : 'about to land') : 'landing unknown (seen mid-flight)';
-        line = `${m.ret ? '← Torn' : '→ ' + esc(m.country || m.desc || 'abroad')} <i>· ${lands}</i> · ${planeTxt}`;
+        line = `${m.ret ? '← Torn' : '→ ' + flag(m.country) + esc(m.country || m.desc || 'abroad')} <i>· ${lands}</i> · ${planeTxt}`;
         const mine = !m.ret && m.country ? myFlight(m.country) : 0;
         if (mine && L && left > 0) {
           const diff = L.at - (sec + mine), leaveIn = L.at - mine - sec;
@@ -1188,11 +1188,15 @@
 
   const MODES = { fast: () => `⚡ ${cfg().fast} s`, slow: () => '60 s', pause: () => 'paused until landing', abroad: () => '20 s', other: () => '30 s' };
   const COLORS = { Okay: '#34d399', Traveling: '#16d9f2', Abroad: '#60a5fa', Hospital: '#f87171', Jail: '#f87171' };
+  // Emoji flags: no image host needed, so the script still talks only to Torn and TornScope.
+  const FLAGS = { 'Mexico': '🇲🇽', 'Cayman Islands': '🇰🇾', 'Canada': '🇨🇦', 'Hawaii': '🌺', 'United Kingdom': '🇬🇧', 'Argentina': '🇦🇷', 'Switzerland': '🇨🇭', 'Japan': '🇯🇵', 'China': '🇨🇳', 'United Arab Emirates': '🇦🇪', 'South Africa': '🇿🇦' };
+  const flag = (c) => FLAGS[c] ? FLAGS[c] + ' ' : '';
   function chip(L) {
-    if (L.state === 'Okay') return 'Okay';
+    if (L.state === 'Okay') return '✔ Okay';
     if (L.state === 'Traveling') return '✈ Traveling';
-    if (L.state === 'Abroad') return 'Abroad';
-    if (L.state === 'Hospital' || L.state === 'Jail') return L.state;
+    if (L.state === 'Abroad') return '🌍 Abroad';
+    if (L.state === 'Hospital') return '🏥 Hospital';
+    if (L.state === 'Jail') return '⛓ Jail';
     return L.state || '—';
   }
 
@@ -1209,7 +1213,7 @@
       let line, prog = '';
       if (L.state === 'Traveling') {
         const where = dest || L.desc || 'unknown destination';
-        line = (ret ? '← ' : '→ ') + esc(where);
+        line = (ret ? '← ' : '→ ') + flag(dest) + esc(where);
         if (L.until) {
           const left = L.until - now / 1000;
           line += ` <i>· lands ${esc(hhmm(L.until))} (in ${fmtDur(left)})</i>`;
@@ -1217,7 +1221,7 @@
           if (!t0 && BASE_MIN[dest]) { const f = (PLANES.find(([n]) => n === (t.plane || 'Airstrip')) || [0, 1])[1]; t0 = L.until * 1000 - BASE_MIN[dest] * f * 60000; }
           if (t0 && L.until * 1000 > t0) prog = `<div class="pb"><i style="width:${Math.min(100, Math.max(0, (now - t0) / (L.until * 1000 - t0) * 100)).toFixed(1)}%"></i></div>`;
         } else line += ' <i>· landing time unknown</i>';
-      } else if (L.state === 'Abroad') line = 'In ' + esc(dest || L.desc.replace(/^In /i, ''));
+      } else if (L.state === 'Abroad') line = 'In ' + flag(dest) + esc(dest || L.desc.replace(/^In /i, ''));
       else line = esc(L.desc || '—');
       const src = L.state === 'Traveling' && L.until ? (L.untilSrc === 'api' ? '<span class="v">✓ Torn</span>' : '<span class="e">≈ est.</span>') : '';
       const info = L.err ? `<span class="err">${esc(L.err)}</span>`
@@ -1448,7 +1452,7 @@
   });
 })();
 console.log(
-  '[TornScope 3.6] PDA_httpGet:',
+  '[TornScope 3.7] PDA_httpGet:',
   typeof window.PDA_httpGet,
   '| PDA_httpPost:',
   typeof window.PDA_httpPost
