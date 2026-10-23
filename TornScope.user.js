@@ -3,7 +3,7 @@
 // @namespace    tornscope
 // @homepageURL  https://app.tornscope.com
 // @supportURL   https://app.tornscope.com
-// @version      3.3
+// @version      3.4
 // @description  Track Torn players: flights, landings, alarms, War mode and Premium server tracking. Works with the TornScope site and Torn PDA | Developer: Zeussh (4268037)
 // @match        https://www.torn.com/*
 // @run-at       document-end
@@ -27,7 +27,7 @@
   const ABROAD = 20000;        // target abroad
   const OTHER = 30000;         // hospital, jail...
   const ONLINE_WINDOW = 300;   // seconds: active within the last 5 min = "online"
-  const VERSION = '3.3';
+  const VERSION = '3.4';
   const TRAVEL_URL = 'https://www.torn.com/page.php?sid=travel';
   const SITE_URL = 'https://app.tornscope.com';
   const LOGO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><g stroke="currentColor" stroke-linecap="round" fill="none"><circle cx="32" cy="32" r="29" stroke-width="3"/><circle cx="32" cy="32" r="19" stroke-width="2" stroke-opacity=".75"/><circle cx="32" cy="32" r="9" stroke-width="2" stroke-opacity=".75"/><path d="M32 4v13M32 47v13M4 32h13M47 32h13" stroke-width="1.5" stroke-opacity=".5"/></g><path d="M32 32L41.0 4.4A29 29 0 0 1 48.8 8.4Z" fill="#16D9F2" fill-opacity="0.07"/><path d="M32 32L48.8 8.4A29 29 0 0 1 55.2 14.5Z" fill="#16D9F2" fill-opacity="0.12"/><path d="M32 32L55.2 14.5A29 29 0 0 1 59.3 22.3Z" fill="#16D9F2" fill-opacity="0.19"/><path d="M32 32L59.3 22.3A29 29 0 0 1 61.0 31.0Z" fill="#16D9F2" fill-opacity="0.3"/><path d="M32 32L61.0 31.0" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="47" cy="19" r="3.6" fill="var(--blip,#fff)" fill-opacity=".2"/><circle cx="47" cy="19" r="2.3" fill="var(--blip,#fff)"/><circle cx="41" cy="11.5" r="1.5" fill="var(--blip,#fff)" fill-opacity=".85"/><circle cx="32" cy="32" r="3" fill="currentColor"/></svg>';
@@ -906,7 +906,7 @@
         <div id="wlist"></div>
         <div class="hint" id="wfeed" style="margin-top:6px"></div>
         <div class="hint" id="wst"></div>
-        <div class="hint">One request reads the whole faction (3 per minute). Sync replaces the list. Aircraft is deduced when the take-off is seen; Premium also fills it in from the server.</div>
+        <div class="hint">One request reads the whole faction (3 per minute). Sync replaces the list. The aircraft is read from Torn; the landing is calculated from the take-off, so it needs the take-off to be seen (Premium also fills it in from the server).</div>
       </section>
       <section class="pn" id="p-s">
         <div class="grp"><h4>Torn</h4>
@@ -947,25 +947,30 @@
   const W = (() => {
     const s = store.get('war', null) || {};
     return { on: !!s.on, fid: /^\d{1,8}$/.test(String(s.fid || '')) ? String(s.fid) : '', plane: PLANES.some(([n]) => n === s.plane) ? s.plane : 'Airstrip',
-      all: !!s.all, members: (s.members && typeof s.members === 'object') ? s.members : {}, name: s.name || '', pollAt: Number(s.pollAt) || 0,
+      all: !!s.all, learn: (s.learn && typeof s.learn === 'object') ? s.learn : {}, members: (s.members && typeof s.members === 'object') ? s.members : {}, name: s.name || '', pollAt: Number(s.pollAt) || 0,
       nextAt: 0, busy: false, err: '', feed: [], lastBeep: 0, srvAt: 0 };
   })();
   const warOn = () => W.on;
-  const warSave = () => store.set('war', { on: W.on, fid: W.fid, plane: W.plane, all: W.all, members: W.members, name: W.name, pollAt: W.pollAt });
+  const warSave = () => { const ids = Object.keys(W.learn); if (ids.length > 600) ids.slice(0, ids.length - 600).forEach(k => { delete W.learn[k]; }); store.set('war', { on: W.on, fid: W.fid, plane: W.plane, all: W.all, learn: W.learn, members: W.members, name: W.name, pollAt: W.pollAt }); };
 
-  // Which aircraft fits the window [last check on the ground, now]? Only one match is accepted.
-  function warInfer(country, untilSec, winStart, winEnd) {
-    const base = country ? BASE_MIN[country] : 0;
-    if (!base || !(untilSec > winEnd) || !(winStart > 0)) return null;
-    const found = [];
-    PLANES.forEach(([name, f]) => {
-      const duration = Math.round(base * f * 60), takeoff = untilSec - duration;
-      if (takeoff >= winStart - 5 && takeoff <= winEnd + 5) found.push({ plane: name, takeoff, duration });
-    });
-    const distinct = found.filter((v, i) => found.findIndex(w => Math.abs(w.takeoff - v.takeoff) <= 30) === i);
-    if (distinct.length !== 1) return null;
-    const h = distinct[0];
-    return { plane: h.plane, takeoff: Math.min(winEnd, Math.max(winStart, h.takeoff)), dur: h.duration };
+  // Torn gives no landing time for travellers (status.until is 0). The aircraft comes from plane_image_type,
+  // the take-off is the middle of the window between two reads, and the landing is calculated from them.
+  const PTYPE = { airliner: 'Standard', light_aircraft: 'Airstrip' };   // other values are shown as they are
+  const planeFactor = (name) => (PLANES.find(([n]) => n === name) || [0, 0])[1];
+  // Duration in seconds, or 0 when unknown. book: true / false / null (unknown)
+  function warDur(plane, country, book) {
+    const base = BASE_MIN[country], f = planeFactor(book ? plane + '+book' : plane);
+    return base && f ? Math.round(base * f * 60) : 0;
+  }
+  // Best landing estimate: { at, alt } (alt = earlier landing if the flight was booked) or null
+  function warLand(m) {
+    if (!(m.takeoff > 0) || !PTYPE[m.ptype]) return null;
+    const plane = PTYPE[m.ptype], learnt = W.learn[m.id];
+    const d0 = warDur(plane, m.country, false), d1 = warDur(plane, m.country, true);
+    if (!d0) return null;
+    if (learnt === 1 && d1) return { at: m.takeoff + d1, alt: 0 };
+    if (learnt === 0 || !d1) return { at: m.takeoff + d0, alt: 0 };
+    return { at: m.takeoff + d0, alt: m.takeoff + d1 };
   }
 
   // Enemy faction of a faction: ranked war first, then territory / raid wars (same logic as the server).
@@ -1017,7 +1022,7 @@
     return { id: String(id), name: String(m && m.name || '').slice(0, 40), level: Math.max(0, Math.floor(Number(m && m.level) || 0)),
       state: String(st.state || '').slice(0, 24), desc: desc.slice(0, 120), until: Math.max(0, Math.floor(Number(st.until) || 0)),
       la: Math.max(0, Math.floor(Number(la.timestamp) || 0)), country: destOf(desc) || '', ret,
-      plane: '', src: '', takeoff: 0, dur: 0, hosp: 0 };
+      ptype: String(st.plane_image_type || '').slice(0, 24), takeoff: 0, hosp: 0 };
   }
 
   function warAlert(text) {
@@ -1036,15 +1041,18 @@
     for (const [id, m] of entries) {
       if (!/^\d+$/.test(String(id)) || !m) continue;
       const n = warMember(id, m, now), p = old[id];
-      if (p && n.state === 'Traveling' && p.state === 'Traveling' && Math.abs(p.until - n.until) <= 3) { n.plane = p.plane; n.src = p.src; n.takeoff = p.takeoff; n.dur = p.dur; }
-      else if (p && p.state !== 'Traveling' && n.state === 'Traveling' && n.country && prevAt) {
-        const inf = warInfer(n.country, n.until, prevAt, now);
-        if (inf) { n.plane = inf.plane; n.src = 'inferred'; n.takeoff = inf.takeoff; n.dur = inf.dur; }
+      if (p && n.state === 'Traveling' && p.state === 'Traveling' && p.desc === n.desc) n.takeoff = p.takeoff;                  // same flight
+      else if (p && n.state === 'Traveling' && p.state !== 'Traveling' && prevAt) n.takeoff = Math.round((prevAt + now) / 2);    // take-off seen between two reads
+      // landed: compare the real flight time with the two possible durations (booked or not) and remember it for this player
+      if (p && p.state === 'Traveling' && n.state !== 'Traveling' && p.takeoff > 0 && PTYPE[p.ptype]) {
+        const obs = now - p.takeoff, d0 = warDur(PTYPE[p.ptype], p.country, false), d1 = warDur(PTYPE[p.ptype], p.country, true);
+        if (d0 && d1 && obs >= d1 - 60 && obs <= d0 + 120) W.learn[id] = Math.abs(obs - d1) < Math.abs(obs - d0) ? 1 : 0;
       }
       if (p && n.state === 'Hospital' && p.state === 'Hospital' && p.until === n.until) n.hosp = p.hosp;
-      if (had && p && p.state !== 'Traveling' && n.state === 'Traveling' && n.until > now) {
-        const when = hhmm(n.until), pl = n.plane ? ' · ' + n.plane : '';
-        warAlert(n.ret ? `${n.name || id} is returning to Torn, lands ${when}${pl}` : `${n.name || id} takes off → ${n.country || 'abroad'}, lands ${when}${pl}`);
+      if (had && p && p.state !== 'Traveling' && n.state === 'Traveling') {
+        const L = (n.takeoff > 0 && !n.ret) ? warLand(n) : null, pl = PTYPE[n.ptype] ? ' · ' + PTYPE[n.ptype] : (n.ptype ? ' · ' + n.ptype : '');
+        const when = L ? ', lands ~' + hhmm(L.at) : '';
+        warAlert(n.ret ? `${n.name || id} is returning to Torn${when}${pl}` : `${n.name || id} takes off → ${n.country || 'abroad'}${when}${pl}`);
       }
       next[id] = n;
     }
@@ -1052,16 +1060,14 @@
     warSave(); return true;
   }
 
-  // Server side data (Premium): aircraft seen while this browser was closed.
+  // Server side data (Premium): take-offs seen while this browser was closed.
   async function warServerMerge() {
     if (!getOverlayToken() || !W.fid) return;
     const r = await overlayRequest('GET', '/overlay/war');
     if (!isOk(r) || !Array.isArray(r.data.members)) return;
     for (const s of r.data.members) {
       const m = W.members[String(s.id)];
-      if (m && m.state === 'Traveling' && !m.plane && s.plane && Math.abs((Number(s.until) || 0) - m.until) <= 120) {
-        m.plane = String(s.plane); m.src = 'server'; m.takeoff = Number(s.takeoffAt) || 0; m.dur = Number(s.duration) || 0;
-      }
+      if (m && m.state === 'Traveling' && !(m.takeoff > 0) && Number(s.takeoffAt) > 0 && s.description === m.desc) m.takeoff = Number(s.takeoffAt);
     }
   }
   function warPushConfig() {
@@ -1138,17 +1144,19 @@
     const cnt = (s) => list.filter(m => m.state === s).length;
     $('#wsum').textContent = list.length ? `${W.name ? W.name + ' · ' : ''}${list.length} members · ✈ ${cnt('Traveling')} · abroad ${cnt('Abroad')} · hospital ${cnt('Hospital')}` : 'No list yet. Enter the enemy faction ID and press Sync.';
     $('#wst').innerHTML = W.err ? `<span class="err">${esc(W.err)}</span>` : (W.pollAt ? `Updated ${hhmm(W.pollAt)} · every ${WAR_EVERY / 1000} s${running ? '' : ' · paused (press ▶)'}` : '');
+    const etaOf = (m) => { if (m.state === 'Traveling') { const L = warLand(m); return L ? L.at : 9e12; } return m.until || 9e12; };
     const rank = (m) => m.state === 'Traveling' ? 0 : m.state === 'Hospital' ? 1 : m.state === 'Abroad' ? 2 : 3;
-    const shown = list.filter(m => W.all || rank(m) < 3).sort((a, b) => rank(a) - rank(b) || (rank(a) < 2 ? a.until - b.until : (b.la - a.la)));
+    const shown = list.filter(m => W.all || rank(m) < 3).sort((a, b) => rank(a) - rank(b) || (rank(a) < 2 ? etaOf(a) - etaOf(b) : (b.la - a.la)));
     $('#wlist').innerHTML = shown.map(m => {
       const c = WAR_COLORS[m.state] || '#64748b';
       let line = '', gap = '';
       if (m.state === 'Traveling') {
-        const left = m.until - sec;
-        line = `${m.ret ? '← Torn' : '→ ' + esc(m.country || m.desc || 'abroad')} <i>· lands ${esc(hhmm(m.until))} (in ${fmtDur(left)})</i> · ${m.plane ? '✈ ' + esc(m.plane) + (m.src ? ' <i>(' + esc(m.src) + ')</i>' : '') : '<i>aircraft unknown</i>'}`;
+        const L = warLand(m), left = L ? L.at - sec : 0, planeTxt = PTYPE[m.ptype] ? '✈ ' + esc(PTYPE[m.ptype]) : m.ptype ? '✈ ' + esc(m.ptype) : '<i>aircraft unknown</i>';
+        const lands = L ? (left > 0 ? `lands ~${esc(hhmm(L.at))} (in ${fmtDur(left)})` + (L.alt ? ` · ~${esc(hhmm(L.alt))} if booked` : '') : 'about to land') : 'landing unknown (seen mid-flight)';
+        line = `${m.ret ? '← Torn' : '→ ' + esc(m.country || m.desc || 'abroad')} <i>· ${lands}</i> · ${planeTxt}`;
         const mine = !m.ret && m.country ? myFlight(m.country) : 0;
-        if (mine && left > 0) {
-          const diff = m.until - (sec + mine), leaveIn = m.until - mine - sec;
+        if (mine && L && left > 0) {
+          const diff = L.at - (sec + mine), leaveIn = L.at - mine - sec;
           gap = `Leave now (${esc(W.plane)}): you land <b class="${diff >= 0 ? 'v' : 'e'}">${fmtDur(Math.abs(diff))} ${diff >= 0 ? 'before' : 'after'}</b> him · ${leaveIn > 0 ? 'leave in <b class="v">' + fmtDur(leaveIn) + '</b> to land together' : 'too late to land together'}`;
         }
       } else if (m.state === 'Hospital') line = m.until > sec ? `Hospital <i>· out in ${fmtDur(m.until - sec)}</i>` : 'Hospital <i>· out</i>';
@@ -1427,7 +1435,7 @@
   });
 })();
 console.log(
-  '[TornScope 3.3] PDA_httpGet:',
+  '[TornScope 3.4] PDA_httpGet:',
   typeof window.PDA_httpGet,
   '| PDA_httpPost:',
   typeof window.PDA_httpPost
