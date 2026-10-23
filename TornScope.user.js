@@ -3,7 +3,7 @@
 // @namespace    tornscope
 // @homepageURL  https://app.tornscope.com
 // @supportURL   https://app.tornscope.com
-// @version      3.4
+// @version      3.5
 // @description  Track Torn players: flights, landings, alarms, War mode and Premium server tracking. Works with the TornScope site and Torn PDA | Developer: Zeussh (4268037)
 // @match        https://www.torn.com/*
 // @run-at       document-end
@@ -189,10 +189,12 @@
     const low = ' ' + d.toLowerCase().replace(/[^a-z ]/g, ' ') + ' ';
     const al = Object.keys(ALIASES).find(k => low.includes(' ' + k + ' '));
     if (al) return ALIASES[al];
+    const ft = d.match(/^Travell?ing from (.{2,40}?) to (.{2,40})$/i);
+    if (ft) return (/^torn$/i.test(ft[2].trim()) ? ft[1] : ft[2]).trim();
     const m = d.match(/^Travell?ing to (.{2,40})$/i) || d.match(/from (.{2,40})$/i) || d.match(/^In (.{2,40})$/i);
     return m ? m[1].trim() : '';
   }
-  const isReturn = (desc) => /^returning/i.test(String(desc || '').trim());
+  const isReturn = (desc) => { const d = String(desc || '').trim(); return /^returning/i.test(d) || /^travell?ing from .{2,40} to torn$/i.test(d); };
 
   const live = {};
   const ensureLive = (t) => (live[t.id] = live[t.id] || { state: '', desc: '', until: 0, untilSrc: '', polledAt: 0, rel: '', mode: '', nextAt: 0, seen: false, busy: false, err: '', t0: null, flash: 0 });
