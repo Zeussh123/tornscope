@@ -1,0 +1,18 @@
+TORNSCOPE - FEATURES (current) AND IDEAS BACKLOG
+
+CURRENT
+ - Target watcher: state, destination, landing time, progress bar, alarm
+ - War mode: enemy faction roster, landing estimates, "leave in X to land together"
+ - Premium server tracking, account sync, Torn PDA support
+ - Flicker-free list rendering, country flags, button icons (v3.6)
+
+BACKLOG (taken one step per hourly round, kept light - no clutter)
+ 1. Sort/filter chips on Targets (flying / hospital / okay)
+ 2. Hospital countdown + "out in" alarm
+ 3. Compact/comfortable density toggle
+ 4. Per-target notes and custom alert sound/volume
+ 5. Export/import targets (JSON) and local history of flights
+ 6. Hospital/revive-aware War list, quick-copy of attack links
+ 7. Theme accent choice
+ Inspiration: tornw3b.dev, other Torn fan sites/scripts (only inline assets;
+ the script must keep talking only to api.torn.com and the TornScope server).

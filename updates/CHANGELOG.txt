@@ -1,0 +1,19 @@
+TORNSCOPE - CHANGELOG
+Newest first. One entry per hourly improvement round.
+(Only the userscript lives in this repo; the website app.tornscope.com is separate.)
+
+== v3.6 (2026-10-24) - Smooth refresh round ==
+FIXED
+ - Page jumping to the top every second: the cards were fully rebuilt each
+   refresh, which collapsed the scroll area. Cards (Targets and War) are now
+   patched in place; only a card whose content really changed is touched.
+   Scroll position, hover and the open aircraft dropdown are preserved
+   (no more global "skip refresh while a dropdown is open" workaround).
+ - Version strings were out of sync (header 3.5 / VERSION 3.4 / console 3.4).
+ADDED
+ - Country flags on destinations (Targets and War lists).
+ - Icons on tabs and main buttons.
+ - updates/ folder with this changelog and FEATURES.txt.
+
+== v3.5 and earlier ==
+ See git history (War mode, Premium server tracking, PDA support...).

@@ -3,7 +3,7 @@
 // @namespace    tornscope
 // @homepageURL  https://app.tornscope.com
 // @supportURL   https://app.tornscope.com
-// @version      3.5
+// @version      3.6
 // @description  Track Torn players: flights, landings, alarms, War mode and Premium server tracking. Works with the TornScope site and Torn PDA | Developer: Zeussh (4268037)
 // @match        https://www.torn.com/*
 // @run-at       document-end
@@ -27,7 +27,7 @@
   const ABROAD = 20000;        // target abroad
   const OTHER = 30000;         // hospital, jail...
   const ONLINE_WINDOW = 300;   // seconds: active within the last 5 min = "online"
-  const VERSION = '3.4';
+  const VERSION = '3.6';
   const TRAVEL_URL = 'https://www.torn.com/page.php?sid=travel';
   const SITE_URL = 'https://app.tornscope.com';
   const LOGO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><g stroke="currentColor" stroke-linecap="round" fill="none"><circle cx="32" cy="32" r="29" stroke-width="3"/><circle cx="32" cy="32" r="19" stroke-width="2" stroke-opacity=".75"/><circle cx="32" cy="32" r="9" stroke-width="2" stroke-opacity=".75"/><path d="M32 4v13M32 47v13M4 32h13M47 32h13" stroke-width="1.5" stroke-opacity=".5"/></g><path d="M32 32L41.0 4.4A29 29 0 0 1 48.8 8.4Z" fill="#16D9F2" fill-opacity="0.07"/><path d="M32 32L48.8 8.4A29 29 0 0 1 55.2 14.5Z" fill="#16D9F2" fill-opacity="0.12"/><path d="M32 32L55.2 14.5A29 29 0 0 1 59.3 22.3Z" fill="#16D9F2" fill-opacity="0.19"/><path d="M32 32L59.3 22.3A29 29 0 0 1 61.0 31.0Z" fill="#16D9F2" fill-opacity="0.3"/><path d="M32 32L61.0 31.0" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="47" cy="19" r="3.6" fill="var(--blip,#fff)" fill-opacity=".2"/><circle cx="47" cy="19" r="2.3" fill="var(--blip,#fff)"/><circle cx="41" cy="11.5" r="1.5" fill="var(--blip,#fff)" fill-opacity=".85"/><circle cx="32" cy="32" r="3" fill="currentColor"/></svg>';
@@ -888,12 +888,12 @@
     </div>
     <div class="bd">
       <nav class="tabs">
-        <button data-tab="t" class="on">Targets</button><button data-tab="w">⚔ War</button><button data-tab="s">Settings</button>
+        <button data-tab="t" class="on">🎯 Targets</button><button data-tab="w">⚔ War</button><button data-tab="s">⚙ Settings</button>
       </nav>
       <section class="pn on" id="p-t">
         <div class="hint" id="wban" style="display:none;color:#fbbf24;margin:0 0 6px"></div>
         <div id="cards"></div>
-        <div class="add"><input type="text" id="nid" placeholder="Player ID" inputmode="numeric"><button class="pr" id="addb">Add</button></div>
+        <div class="add"><input type="text" id="nid" placeholder="Player ID" inputmode="numeric"><button class="pr" id="addb">＋ Add</button></div>
         <div class="ft"><span class="dot" id="sdot"></span><span id="syn"></span></div>
         <div class="hint" id="cap"></div>
       </section>
@@ -905,7 +905,7 @@
         <label class="ck"><input type="checkbox" id="wall"> Show everyone</label>
         <div class="hint" id="wsum" style="margin:6px 0"></div>
         <div class="hint" id="wsave" style="display:none"></div>
-        <div id="wlist"></div>
+        <div id="wlist"></div><div class="empty" id="wempty"></div>
         <div class="hint" id="wfeed" style="margin-top:6px"></div>
         <div class="hint" id="wst"></div>
         <div class="hint">One request reads the whole faction (3 per minute). Sync replaces the list. The aircraft is read from Torn; the landing is calculated from the take-off, so it needs the take-off to be seen (Premium also fills it in from the server).</div>
@@ -923,7 +923,7 @@
           <label class="ck"><input type="checkbox" id="snd"> Alert sound</label>
           <label class="ck"><input type="checkbox" id="ntf"> Notification</label>
           <label>Fast check interval (seconds, min 3)<input type="number" id="fast" min="3" max="30"></label>
-          <div class="bar2"><button class="sc" id="tst">Test alert</button><button class="sc" id="dk">Move panel top / bottom</button></div>
+          <div class="bar2"><button class="sc" id="tst">🔔 Test alert</button><button class="sc" id="dk">Move panel top / bottom</button></div>
           <div class="hint">The alarm repeats until you stop it. Monitoring continues afterward.</div></div>
         <div class="gw" title="API requests over the last 60 seconds">API usage <span class="gb"><i id="gf"></i></span><span id="gt">0/${API_CAP}</span> per min · v${VERSION}</div>
         <div class="hint" id="sh"></div>
@@ -941,6 +941,33 @@
   let msgTimer;
   function msg(t) { $('#msg').textContent = t; clearTimeout(msgTimer); msgTimer = setTimeout(() => { $('#msg').textContent = ''; }, 5000); }
 
+
+
+  /* ----- Flicker-free list rendering + country flags ----- */
+  const FLAGS = { 'Mexico': '🇲🇽', 'Cayman Islands': '🇰🇾', 'Canada': '🇨🇦', 'Hawaii': '🌺', 'United Kingdom': '🇬🇧', 'Argentina': '🇦🇷', 'Switzerland': '🇨🇭', 'Japan': '🇯🇵', 'China': '🇨🇳', 'United Arab Emirates': '🇦🇪', 'South Africa': '🇿🇦' };
+  const flag = (c) => FLAGS[c] ? FLAGS[c] + ' ' : '';
+  // Updates only the items whose HTML changed, so scroll position, hover and open dropdowns survive the 1 s refresh.
+  // items: [{k: unique key, h: html of ONE root element}]
+  function patchList(el, items) {
+    const pn = el.closest('.pn'), top = pn ? pn.scrollTop : 0;
+    const act = root.activeElement;
+    const old = new Map();
+    Array.from(el.children).forEach(n => { if (n.dataset && n.dataset.k !== undefined) old.set(n.dataset.k, n); else n.remove(); });
+    const keep = new Set(items.map(i => i.k));
+    old.forEach((n, k) => { if (!keep.has(k)) { n.remove(); old.delete(k); } });
+    let prev = null;
+    items.forEach(i => {
+      let n = old.get(i.k);
+      if (!n || (n._h !== i.h && !(act && n.contains(act)))) {
+        const t = document.createElement('template'); t.innerHTML = i.h;
+        const fresh = t.content.firstElementChild; fresh.dataset.k = i.k; fresh._h = i.h;
+        if (n) n.replaceWith(fresh); n = fresh;
+      }
+      if (n.parentNode !== el || n.previousElementSibling !== prev) el.insertBefore(n, prev ? prev.nextSibling : el.firstChild);
+      prev = n;
+    });
+    if (pn && pn.scrollTop !== top) pn.scrollTop = top;
+  }
 
   /* ================= War mode (enemy faction roster) ================= */
   // One request returns the whole enemy faction (status, travel, last action): no per-member scanning.
@@ -1149,13 +1176,13 @@
     const etaOf = (m) => { if (m.state === 'Traveling') { const L = warLand(m); return L ? L.at : 9e12; } return m.until || 9e12; };
     const rank = (m) => m.state === 'Traveling' ? 0 : m.state === 'Hospital' ? 1 : m.state === 'Abroad' ? 2 : 3;
     const shown = list.filter(m => W.all || rank(m) < 3).sort((a, b) => rank(a) - rank(b) || (rank(a) < 2 ? etaOf(a) - etaOf(b) : (b.la - a.la)));
-    $('#wlist').innerHTML = shown.map(m => {
+    const wl = shown.map(m => {
       const c = WAR_COLORS[m.state] || '#64748b';
       let line = '', gap = '';
       if (m.state === 'Traveling') {
         const L = warLand(m), left = L ? L.at - sec : 0, planeTxt = PTYPE[m.ptype] ? '✈ ' + esc(PTYPE[m.ptype]) : m.ptype ? '✈ ' + esc(m.ptype) : '<i>aircraft unknown</i>';
         const lands = L ? (left > 0 ? `lands ~${esc(hhmm(L.at))} (in ${fmtDur(left)})` + (L.alt ? ` · ~${esc(hhmm(L.alt))} if booked` : '') : 'about to land') : 'landing unknown (seen mid-flight)';
-        line = `${m.ret ? '← Torn' : '→ ' + esc(m.country || m.desc || 'abroad')} <i>· ${lands}</i> · ${planeTxt}`;
+        line = `${m.ret ? '← Torn' : '→ ' + flag(m.country) + esc(m.country || m.desc || 'abroad')} <i>· ${lands}</i> · ${planeTxt}`;
         const mine = !m.ret && m.country ? myFlight(m.country) : 0;
         if (mine && L && left > 0) {
           const diff = L.at - (sec + mine), leaveIn = L.at - mine - sec;
@@ -1163,9 +1190,11 @@
         }
       } else if (m.state === 'Hospital') line = m.until > sec ? `Hospital <i>· out in ${fmtDur(m.until - sec)}</i>` : 'Hospital <i>· out</i>';
       else line = esc(m.desc || m.state || '—');
-      return `<div class="card" style="--c:${c}"><div class="top"><span class="tn">${esc(m.name || m.id)}</span><span class="id">[${esc(m.id)}] L${m.level}</span><span class="st">${esc(m.state === 'Traveling' ? '✈ Traveling' : m.state || '—')}</span></div>` +
-        `<div class="ln">${line}</div><div class="mt"><span>active ${esc(ago(m.la))}</span>${gap ? '<span>' + gap + '</span>' : ''}<a class="go" href="https://www.torn.com/profiles.php?XID=${esc(m.id)}" target="_blank" rel="noopener noreferrer">Profile ↗</a></div></div>`;
-    }).join('') || (list.length ? '<div class="empty">Nobody is moving. Tick “Show everyone” to see the whole list.</div>' : '');
+      return { k: 'w' + m.id, h: `<div class="card" style="--c:${c}"><div class="top"><span class="tn">${esc(m.name || m.id)}</span><span class="id">[${esc(m.id)}] L${m.level}</span><span class="st">${esc(m.state === 'Traveling' ? '✈ Traveling' : m.state || '—')}</span></div>` +
+        `<div class="ln">${line}</div><div class="mt"><span>active ${esc(ago(m.la))}</span>${gap ? '<span>' + gap + '</span>' : ''}<a class="go" href="https://www.torn.com/profiles.php?XID=${esc(m.id)}" target="_blank" rel="noopener noreferrer">Profile ↗</a></div></div>` };
+    });
+    patchList($('#wlist'), wl);
+    $('#wempty').textContent = wl.length ? '' : list.length ? 'Nobody is moving. Tick “Show everyone” to see the whole list.' : '';
     $('#wfeed').innerHTML = W.feed.map(f => `<div><i>${esc(new Date(f.at).toLocaleTimeString('en-GB'))}</i> ${esc(f.text)}</div>`).join('');
   }
 
@@ -1193,12 +1222,12 @@
         : 'No targets.<br>Add a player ID below.';
       c.innerHTML = '<div class="empty">' + msgText + '</div>'; return;
     }
-    c.innerHTML = targets.map(t => {
+    patchList(c, targets.map(t => {
       const L = ensureLive(t), fl = L.flash > now, dest = destOf(L.desc), ret = isReturn(L.desc);
       let line, prog = '';
       if (L.state === 'Traveling') {
         const where = dest || L.desc || 'unknown destination';
-        line = (ret ? '← ' : '→ ') + esc(where);
+        line = (ret ? '← ' : '→ ') + flag(dest) + esc(where);
         if (L.until) {
           const left = L.until - now / 1000;
           line += ` <i>· lands ${esc(hhmm(L.until))} (in ${fmtDur(left)})</i>`;
@@ -1206,7 +1235,7 @@
           if (!t0 && BASE_MIN[dest]) { const f = (PLANES.find(([n]) => n === (t.plane || 'Airstrip')) || [0, 1])[1]; t0 = L.until * 1000 - BASE_MIN[dest] * f * 60000; }
           if (t0 && L.until * 1000 > t0) prog = `<div class="pb"><i style="width:${Math.min(100, Math.max(0, (now - t0) / (L.until * 1000 - t0) * 100)).toFixed(1)}%"></i></div>`;
         } else line += ' <i>· landing time unknown</i>';
-      } else if (L.state === 'Abroad') line = 'In ' + esc(dest || L.desc.replace(/^In /i, ''));
+      } else if (L.state === 'Abroad') line = 'In ' + flag(dest) + esc(dest || L.desc.replace(/^In /i, ''));
       else line = esc(L.desc || '—');
       const src = L.state === 'Traveling' && L.until ? (L.untilSrc === 'api' ? '<span class="v">✓ Torn</span>' : '<span class="e">≈ est.</span>') : '';
       const info = L.err ? `<span class="err">${esc(L.err)}</span>`
@@ -1214,12 +1243,12 @@
       const plane = `<select data-plane="${esc(t.id)}" title="Aircraft used to estimate this player's flights" aria-label="Aircraft for ${esc(t.name || t.id)}">
             ${PLANES.map(([name]) => `<option value="${esc(name)}"${(t.plane || 'Airstrip') === name ? ' selected' : ''}>✈ ${esc(name)}</option>`).join('')}</select>`;
       const go = (L.state === 'Traveling' || L.state === 'Abroad') ? `<a class="go" href="${TRAVEL_URL}" title="Open Torn's travel page">Travel ↗</a>` : '';
-      return `<div class="card${fl ? ' flash' : ''}" style="--c:${COLORS[L.state] || '#64748b'}">
+      return { k: 't' + t.id, h: `<div class="card${fl ? ' flash' : ''}" style="--c:${COLORS[L.state] || '#64748b'}">
         <div class="top"><span class="tn">${esc(t.name || 'Player')}</span><span class="id">[${esc(t.id)}]</span>
           <span class="st">${esc(chip(L))}</span><button class="x" data-rm="${esc(t.id)}" title="Remove">×</button></div>
         <div class="ln">${line}</div>${prog}
-        <div class="mt">${src}<span>${info}</span>${plane}${go}</div></div>`;
-    }).join('');
+        <div class="mt">${src}<span>${info}</span>${plane}${go}</div></div>` };
+    }));
   }
 
   function premiumState() {
@@ -1276,9 +1305,7 @@
     renderHeader(); renderSync(); renderWar();
     const dotEl = $('#sdot');
     dotEl.className = 'dot ' + (sync.state === 'ok' ? 'ok' : (sync.state === 'offline' || sync.state === 'connecting') ? 'warn' : (sync.state === 'auth' || sync.state === 'error') ? 'bad' : '');
-    // Rebuilding the cards every second closes an open aircraft dropdown on mobile.
-    const active = root.getRootNode().activeElement || document.activeElement;
-    if (!(active && active.matches && active.matches('select[data-plane]'))) renderCards();
+    renderCards(); // patched in place: no scroll jump, open dropdowns are left alone
   }
 
   /* ----- Events ----- */
@@ -1437,7 +1464,7 @@
   });
 })();
 console.log(
-  '[TornScope 3.4] PDA_httpGet:',
+  '[TornScope 3.6] PDA_httpGet:',
   typeof window.PDA_httpGet,
   '| PDA_httpPost:',
   typeof window.PDA_httpPost
