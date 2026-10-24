@@ -1,0 +1,20 @@
+TORNSCOPE - CHANGELOG
+=====================
+Newest first. Each hourly check-up appends an entry here.
+
+v3.6 - 2026-10-24
+-----------------
+FIXED
+ - Overlay jumped back to the top on every refresh (the lists were rebuilt each
+   second). The Targets and War lists now keep your scroll position, and are
+   only re-drawn when their content really changed.
+ - Version numbers were inconsistent (header 3.5 / VERSION 3.4 / console 3.4);
+   all are 3.6 now.
+
+BACKLOG (ideas taken from other Torn fan tools, to be done step by step)
+ - Per-state icons on cards and buttons (plane, hospital, jail...)
+ - Compact / comfortable density option
+ - Sort and filter targets (flying first, by landing time)
+ - Landing countdown in the browser tab title
+ - Export / import of the target list (JSON backup)
+ - Smoother, in-place card updates (no full redraw) to remove flicker
