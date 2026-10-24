@@ -1,0 +1,18 @@
+STOCK CARD - spec (target: match tornw3b, built from YATA snapshots)
+
+Our current row:  "08:41:38 now | -> Canada | Xanax x27 · after restock 09:05:04 | lands 09:08:56 | 09:36:14 | $1,246,023"
+tornw3b card:     Canada / Xanax / Drug, price (+ 24h / 7d / 30d change), YATA "1m ago", Depletion Rate 227/min (median 157/min),
+                  Restock Delay 2h (61% of 150 cycles), Restock Qty 1.5K, Sell Out Time 6m, Restocks at (local) 09:00 (in 15m, fair confidence),
+                  verdict "Restocks before you land but likely sold out again", "27m one-way · Airstrip · plan for 1 items".
+
+Implemented (v3.7, site-modules/stock-insights.js, tested):
+  analyse(samples) -> rate, rateMed, qty, delayH, sellOutMin, restockMinute, confidence (share of cycles within +-10 min), cycles, nextRestock
+  verdict(analysis, landAt, want) -> ok | risky | out | unknown + text
+  cost(price, n)
+
+To wire into the site (not in this repo):
+  1. Store a snapshot (t, country, item, qty, cost) every poll; keep 30 days.
+  2. Run analyse() on the last ~150 cycles, cache per country+item.
+  3. Replace the one-line row by the card: header (country, item, type), 4 stat tiles, verdict badge (green/amber/red),
+     "one-way time . aircraft . plan for N" footer. Show the 24h/7d/30d price change as small coloured deltas.
+  4. Refresh by patching values in place (never rebuild the list, keep scrollY).

@@ -1,6 +1,12 @@
 TORNSCOPE - CHANGELOG
 (newest first - updated at each automated check-up)
 
+=== v3.7 - 2026-10-24 (check-up #2) ===
+NEW
+ - site-modules/stock-insights.js (+ test): depletion rate, restock delay/qty, sell-out time, restock time of day
+   with confidence, and a "will it be in stock when I land" verdict - the data shown by tornw3b's stock card.
+ - updates/STOCK-CARD-SPEC.txt: how to turn the site's one-line stock row into that card.
+
 === v3.6 - 2026-10-24 (check-up #1) ===
 FIXED
  - Refresh flicker / scroll jump: the panel redrew every list with innerHTML once per second,
