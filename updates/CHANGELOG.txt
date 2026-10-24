@@ -1,0 +1,44 @@
+TORNSCOPE - CHANGELOG & NEW FEATURES
+====================================
+Newest first. Website/Worker = worker file in this folder. Script = TornScope.user.js.
+Rebuild the Worker: node tools/build-worker.mjs worker3.25.2.mjs updates/src/dashboard.html updates/worker3.26.0.mjs 3.25.2 3.26.0
+(The dashboard is edited as a normal HTML file in updates/src/dashboard.html.)
+
+------------------------------------------------------------
+v3.26.0 (Worker) / v3.6 (Script)  -  2026-10-24  -  "No more jumping"
+------------------------------------------------------------
+FIXED
+ - Dashboard: the automatic refresh (every 60 s on Overview/Targets, 30 s on Radar/War)
+   threw the page back to the top when you were scrolled down. The page is now rebuilt
+   with its height frozen and the scroll position restored (Overview, Targets, Radar, War list).
+ - Overlay (script): the target list was rewritten every second even when nothing changed,
+   which reset its scroll position. It is now only redrawn when the content changes.
+ - Script version strings were inconsistent (header 3.5 / VERSION 3.4); all say 3.6 now.
+
+NEW / UI
+ - Dashboard sidebar: the emoji/glyph icons are replaced by clean line icons (SVG) that follow
+   the theme and light up in the accent colour on hover / active page.
+
+NOTES
+ - Not changed: data, API, database schema, Premium logic.
+
+------------------------------------------------------------
+Earlier history (from the existing repository)
+------------------------------------------------------------
+ Script 3.5  Version bump.
+ Script 3.4  Version bump.
+ Script 3.3  War mode introduced.
+ Worker 3.25.2  Baseline taken as starting point of this changelog.
+
+------------------------------------------------------------
+BACKLOG (ideas, one step per hourly check-up; keep the UI light, no clutter)
+------------------------------------------------------------
+ [ ] Small "Updated 12:04" indicator + manual refresh button (no more silent surprises)
+ [ ] Country flags / plane icons on destinations and in tables
+ [ ] Skeleton loaders instead of blank views during refresh
+ [ ] Overview: next-landing countdown card
+ [ ] Targets: search / sort / group, import-export (JSON)
+ [ ] History: filters (country, date), CSV export
+ [ ] Faster D1 queries: indexes on (user_id, created_at), pagination on history
+ [ ] War: highlight members landing in the next 5 min
+ [ ] Idea sources to review: tornw3b.dev, TornTools, Torn PDA scripts, YATA, Torn Stats
