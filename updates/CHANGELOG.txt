@@ -1,6 +1,13 @@
 TORNSCOPE - CHANGELOG
 (newest first - updated at each automated check-up)
 
+=== v3.8 - 2026-10-24 (check-up #3) ===
+NEW
+ - site-modules/planner-position.js (+ test): the planner takes the player's position into account.
+   Already flying -> first take-off = landing + 30 s minimum; flying out / abroad -> must fly back first.
+   Stock on landing and the day plan are computed for the real take-off time.
+ - updates/PLANNER-POSITION-SPEC.txt: how to wire it (new /api/me/travel endpoint + manual form + banner).
+
 === v3.7 - 2026-10-24 (check-up #2) ===
 NEW
  - site-modules/stock-insights.js (+ test): depletion rate, restock delay/qty, sell-out time, restock time of day
