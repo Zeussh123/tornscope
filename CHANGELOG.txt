@@ -1,0 +1,19 @@
+TORNSCOPE - CHANGELOG & NEW FEATURES
+====================================
+(Updated by the hourly improvement routine. Newest first.)
+
+v3.6 - 2026-10-24
+  FIXED
+  - Scroll jump: the overlay lists (targets, War list, War feed) were rebuilt
+    every second, which sent the scroll back to the top. The DOM is now only
+    updated when the content really changes, and the scroll position is kept.
+  - Version number mismatch (header said 3.5, code said 3.4).
+  RESEARCH (inspiration)
+  - Torn War Stuff Enhanced: sorting by Okay / Hospital / Departing / Abroad / Returning.
+  - Torn War Tracker: draggable display, hospital timers, profile links.
+
+IDEAS BACKLOG (next hourly steps)
+  - Images/icons on buttons and flags for destinations
+  - Group War list by status sections
+  - Cleaner UI polish (not overloaded), compact mode
+  - Better local database (history export, per-target stats)
