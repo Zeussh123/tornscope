@@ -1,0 +1,18 @@
+TORNSCOPE - FEATURES (current) AND IDEAS BACKLOG
+
+CURRENT
+ - Target watching (travel, abroad, hospital, jail, okay) with landing ETA and progress bar
+ - Alarm + notification + sound when a target lands / comes back
+ - Flight history, Premium server-side tracking, sync with app.tornscope.com
+ - War mode: enemy faction roster, landing estimates, "leave in X to land together"
+ - Attack / Profile / Travel quick links, icons, flicker-free live refresh
+
+BACKLOG (picked one or two per hourly check-up, small and not cluttering the UI)
+ 1. War: sort/filter chips (Traveling / Hospital / Okay) and a search box
+ 2. War: hospital countdown highlighted when < 60 s, "out soon" badge
+ 3. Target cards: copy-to-clipboard of the landing time, profile link
+ 4. Per-target note + colour tag
+ 5. Compact / comfortable density switch
+ 6. Light "toast" instead of text messages, sound choice
+ 7. Website (app.tornscope.com) is NOT in this repository: the same patch-don't-rebuild fix
+    (no full re-render on the refresh timer, keep window.scrollY) must be applied there.

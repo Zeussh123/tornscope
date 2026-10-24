@@ -1,0 +1,18 @@
+TORNSCOPE - CHANGELOG
+(newest first - updated at each automated check-up)
+
+=== v3.6 - 2026-10-24 (check-up #1) ===
+FIXED
+ - Refresh flicker / scroll jump: the panel redrew every list with innerHTML once per second,
+   which could throw the scroll back to the top (very visible in Torn PDA) and closed dropdowns.
+   Lists are now patched card by card: a card is only replaced when its content changed, the
+   scroll position is saved/restored, and a card holding the focus (aircraft dropdown) is never touched.
+ - Version numbers were inconsistent (header 3.5, VERSION 3.4, console 3.4): all are 3.6 now.
+NEW
+ - "Attack" button on every target card and every War card (opens Torn's attack page).
+ - Vector icons (no external image, works offline / in PDA) on the tabs, status chips
+   (Traveling, Abroad, Hospital, Jail, Okay) and buttons (Add, Sync, Test alert, Travel, Profile, Open site).
+ - Hover feedback on tabs, red style for attack buttons.
+
+=== v3.5 and before ===
+ See git history (War mode in 3.3, Premium server tracking, sync with the website, Torn PDA support).
