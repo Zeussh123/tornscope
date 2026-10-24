@@ -10,10 +10,10 @@ binding = "DB"
 database_name = "torn-travel-watcher-db"
 database_id = "a6006344-a503-4e9d-a760-70feddadcbc3"
 
-# TODO before the first deploy: copy the Cron Trigger(s) and any Custom Domain/Route
-# (app.tornscope.com) from Cloudflare > Workers > torn-travel-watcher > Settings > Triggers,
-# otherwise a wrangler deploy can drop them. Example:
-# [triggers]
-# crons = ["* * * * *"]
-#
-# routes = [{ pattern = "app.tornscope.com", custom_domain = true }]
+# Taken from the Cloudflare dashboard (Settings > Triggers).
+[triggers]
+crons = ["*/1 * * * *"]
+
+# Public address of the site (SITE_URL in the Worker). If the dashboard shows other
+# Custom Domains / Routes for this Worker, add them here too.
+routes = [{ pattern = "app.tornscope.com", custom_domain = true }]
