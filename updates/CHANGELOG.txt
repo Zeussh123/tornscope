@@ -5,6 +5,19 @@ Rebuild the Worker: node tools/build-worker.mjs worker3.25.2.mjs updates/src/das
 (The dashboard is edited as a normal HTML file in updates/src/dashboard.html.)
 
 ------------------------------------------------------------
+v3.27.0 (Worker)  -  2026-10-24  -  "Find your targets"
+------------------------------------------------------------
+NEW
+ - Targets: search box (name or Torn ID) and status chips (All / Okay / Traveling / ...), shown
+   once you watch more than 5 players. The filter is kept when the page refreshes by itself.
+ - Refresh button shows "Refreshing..." and cannot be double-clicked; it no longer rebuilds the
+   page under your cursor while you are typing in a field.
+FIXED
+ - Coming back to a tab that sat in the background for more than a minute now refreshes at once
+   (before: stale data until the next 60 s tick).
+Rebuild: node tools/build-worker.mjs worker3.25.2.mjs updates/src/dashboard.html updates/worker3.27.0.mjs 3.25.2 3.27.0
+
+------------------------------------------------------------
 v3.26.0 (Worker) / v3.6 (Script)  -  2026-10-24  -  "No more jumping"
 ------------------------------------------------------------
 FIXED
@@ -36,11 +49,11 @@ Earlier history (from the existing repository)
 ------------------------------------------------------------
 BACKLOG (ideas, one step per hourly check-up; keep the UI light, no clutter)
 ------------------------------------------------------------
- [ ] Small "Updated 12:04" indicator + manual refresh button (no more silent surprises)
- [ ] Country flags / plane icons on destinations and in tables
+ [x] "Updated 12:04" indicator + manual refresh button (done 3.27.0)
+ [x] Country flags on destinations (already present)
  [ ] Skeleton loaders instead of blank views during refresh
  [ ] Overview: next-landing countdown card
- [ ] Targets: search / sort / group, import-export (JSON)
+ [~] Targets: search done (3.27.0); group + import-export JSON still to do
  [ ] History: filters (country, date), CSV export
  [ ] Faster D1 queries: indexes on (user_id, created_at), pagination on history
  [ ] War: highlight members landing in the next 5 min
