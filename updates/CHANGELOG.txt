@@ -8,6 +8,9 @@ Rebuild the Worker: node tools/build-worker.mjs worker3.25.2.mjs updates/src/das
 v3.26.0 (Worker) / v3.6 (Script)  -  2026-10-24  -  "No more jumping"
 ------------------------------------------------------------
 FIXED
+ - Radar > Stock (phone/tablet): the "Trip & filters" panel stayed sticky and floated over the
+   Items / Planner / Times tabs and the stock data. On screens <= 960 px it now sits in the normal
+   flow above the data (sticky only stays on desktop where it is a side column).
  - Dashboard: the automatic refresh (every 60 s on Overview/Targets, 30 s on Radar/War)
    threw the page back to the top when you were scrolled down. The page is now rebuilt
    with its height frozen and the scroll position restored (Overview, Targets, Radar, War list).
