@@ -79,7 +79,8 @@
   .ok-text { color: var(--ok, #34d399); font-weight:600; }
   .tlayout { display:grid; grid-template-columns: 262px minmax(0,1fr); gap:14px; align-items:start; margin-top:14px; } .tmain { min-width:0; display:flex; flex-direction:column; gap:12px; }
   /* One column on phones/tablets: the filter panel must flow above the stock table, not stick over it. */
-  @media (max-width: 960px) { .tlayout { grid-template-columns: 1fr; } .tside { position: static; max-height: none; overflow: visible; } }
+  @media (max-width: 960px) { .tlayout { grid-template-columns: 1fr; } .tside { position: static; max-height: none; overflow: visible; } .tside:not(.open) > :not(.tside-head) { display: none; } .tside:not(.open) { gap: 0; } }
+  .tside-toggle { display: none; } @media (max-width: 960px) { .tside-toggle { display: inline-block; } }
   .tside { padding:14px; display:flex; flex-direction:column; gap:10px; position:sticky; top:12px; max-height:calc(100vh - 24px); overflow:auto; } .tside-head { display:flex; justify-content:space-between; align-items:center; } .tside .sec { margin-top:6px; display:flex; flex-direction:column; gap:6px; }
   .tgrid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .pnum { display:flex; flex-direction:column; gap:3px; } .pnum input, .ttool input[type=search], .tside input[type=text] { width:100%; box-sizing:border-box; background: var(--panel2); color: var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 9px; }
   .pseg { display:inline-flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; } .pseg button { background: var(--panel2); color: var(--muted); border:0; padding:7px 14px; font-weight:600; cursor:pointer; border-radius:0; } .pseg button.on { background: var(--accent); color: var(--accent-ink); }
@@ -1232,8 +1233,9 @@
         const tOn = (t) => !P.types || P.types.indexOf(t) >= 0;
         const toggleT = (t) => { const cur = P.types ? P.types.slice() : types.slice(); const i = cur.indexOf(t); if (i >= 0) cur.splice(i, 1); else cur.push(t); P.types = cur.length === types.length ? null : cur; set(); };
         const num = (label, key, help, ph) => h('label', { class: 'small pnum' }, h('span', { class: 'muted', text: label }), h('input', { type: 'text', inputmode: 'numeric', placeholder: ph || '', value: P[key] ? String(P[key]) : '', 'aria-label': label, title: help || '', onchange: (e) => { P[key] = Math.max(0, Math.floor(Number(String(e.target.value).replace(/[^0-9]/g, '')) || 0)); set(); } }));
-        return h('aside', { class: 'card tside' },
-          h('div', { class: 'tside-head' }, h('b', { class: 'small muted', text: 'TRIP & FILTERS' }), h('button', { class: 'plink', type: 'button', onclick: () => { const keep = { view: P.view, tz: P.tz, range: P.range }; RADAR_PLAN = Object.assign({}, PLAN_DEFAULT, keep); savePlan(); redrawStock(); } }, 'Reset')),
+        // Phones: the filters start folded so the stock data is right under the trip settings.
+        const aside = h('aside', { class: 'card tside' + (window.__tsideOpen ? ' open' : '') },
+          h('div', { class: 'tside-head' }, h('b', { class: 'small muted', text: 'TRIP & FILTERS' }), h('button', { class: 'plink tside-toggle', type: 'button', 'aria-expanded': String(!!window.__tsideOpen), onclick: (e) => { window.__tsideOpen = !window.__tsideOpen; aside.classList.toggle('open', window.__tsideOpen); e.currentTarget.setAttribute('aria-expanded', String(window.__tsideOpen)); } }, 'Filters ▾'), h('button', { class: 'plink', type: 'button', onclick: () => { const keep = { view: P.view, tz: P.tz, range: P.range }; RADAR_PLAN = Object.assign({}, PLAN_DEFAULT, keep); savePlan(); redrawStock(); } }, 'Reset')),
           h('div', { class: 'small muted', text: 'Trip' }),
           h('div', { class: 'pseg', role: 'radiogroup', 'aria-label': 'Aircraft' }, PLAN_TYPES.map(t => h('button', { type: 'button', role: 'radio', 'aria-checked': String(P.type === t[0]), title: t[2], class: P.type === t[0] ? 'on' : '', onclick: () => { P.type = t[0]; set(); } }, t[1]))),
           h('div', { class: 'tgrid2' }, num('Carry', 'carry', 'Items you can bring back per flight'), num('Cash', 'cash', 'Your cash in $ (empty = no limit)', 'Unlimited'), num('Sell at % of market', 'sell', 'TornW3B uses 95'), num('Land after restock (s)', 'buffer', 'Safety margin: land this many seconds after the predicted restock')),
@@ -1244,6 +1246,7 @@
             h('div', { class: 'pchips' }, types.map(t => chip(t, tOn(t), () => toggleT(t))))) : null,
           h('div', { class: 'sec' }, h('label', { class: 'small' }, h('input', { type: 'checkbox', checked: P.profitOnly, onchange: (e) => { P.profitOnly = e.target.checked; set(); } }), ' Profitable only'),
             h('label', { class: 'small' }, h('input', { type: 'checkbox', checked: P.stockedOnly, onchange: (e) => { P.stockedOnly = e.target.checked; set(); } }), ' In stock only')));
+        return aside;
       }
       function stockGate(host) {
         if (!ST) { host.appendChild(h('div', { class: 'card' }, empty('Stock unavailable', 'Try again in a moment.'))); return false; }

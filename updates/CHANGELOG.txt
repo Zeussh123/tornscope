@@ -19,6 +19,9 @@ FIXED
  - Script version strings were inconsistent (header 3.5 / VERSION 3.4); all say 3.6 now.
 
 NEW / UI
+ - Radar > Stock on phones: the Trip & filters panel is now folded by default behind a
+   "Filters" button, so the stock data is right below the trip settings (it was a full screen
+   of chips before). Desktop is unchanged.
  - Dashboard sidebar: the emoji/glyph icons are replaced by clean line icons (SVG) that follow
    the theme and light up in the accent colour on hover / active page.
 
