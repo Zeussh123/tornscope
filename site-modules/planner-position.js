@@ -13,14 +13,11 @@
   function earliestDeparture(pos, now, dur, delay) {
     delay = delay == null ? DELAY : delay;
     if (!pos || pos.state === 'torn') return { at: now, why: 'You are in Torn: you can leave now.' };
-    if (pos.state === 'flying') {
-      const land = Math.max(now, pos.landAt || now);
-      if (pos.direction === 'return') return { at: land + delay, why: 'You land in Torn at ' + land + ', then ' + delay + ' s to open the travel page.' };
-      const back = dur(pos.country) || 0;
-      return { at: land + delay + back, why: 'You land in ' + pos.country + ' then must fly back (' + back + ' s).' };
-    }
+    const ready = Math.max(now, (pos.landAt || 0) + delay);          // landed + time to open the travel page
+    if (pos.state === 'flying' && pos.direction === 'return') return { at: ready, why: 'Landing in Torn, then ' + delay + ' s to open the travel page.' };
     const back = dur(pos.country) || 0;
-    return { at: now + delay + back, why: 'You are in ' + pos.country + ': fly back first (' + back + ' s).' };
+    if (pos.state === 'flying') return { at: ready + back, why: 'Landing in ' + pos.country + ', then you must fly back.' };
+    return { at: now + delay + back, why: 'You are in ' + pos.country + ': fly back first.' };
   }
 
   // Same as dashboard planRows() but the player leaves at `start` instead of `now`.

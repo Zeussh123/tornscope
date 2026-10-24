@@ -1,6 +1,17 @@
 TORNSCOPE - CHANGELOG
 (newest first - updated at each automated check-up)
 
+=== Worker 3.25.2 + "my position" - 2026-10-24 (check-up #4) ===
+APPLIED in worker/worker3.25.2-position.mjs (complete file, built from worker3.25.2.mjs by tools/apply-position-patch.mjs)
+ - Planner: "My position" panel (In Torn / Flying home / Flying out / Abroad, country, landing time) and a "Use my position" button.
+ - First take-off = landing + 30 s minimum; flying out or abroad = fly back first. List, "Take off at" column, stock on landing,
+   best routes and the day plan all use it; the day plan also keeps 30 s between two trips. A blue banner shows the earliest take-off.
+ - New route GET /api/me/travel: reads the member's own travel status with their stored key (never returned, 1 read / 10 s).
+ TESTED: syntax; end-to-end test of the route with mocked D1 + Torn (tests/worker-me-travel.test.mjs);
+         the real dashboard page in Chromium with mocked API (tests/dashboard-position.test.cjs).
+ NOTE: worker3.25.2.mjs on main is older than the 3.25.6 the owner runs. Do not deploy this file over 3.25.6:
+       upload the 3.25.6 file and the same patch is re-applied to it in one command.
+
 === v3.8 - 2026-10-24 (check-up #3) ===
 NEW
  - site-modules/planner-position.js (+ test): the planner takes the player's position into account.

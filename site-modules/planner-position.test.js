@@ -2,6 +2,9 @@ const S = require('./planner-position.js'), assert = require('assert');
 const now = 1000000, dur = (c) => ({ Japan: 12780 * 0.7, Mexico: 1500 * 0.7 }[c] || 0);
 // in Torn
 assert.strictEqual(S.earliestDeparture({ state: 'torn' }, now, dur).at, now);
+// landed long ago: no extra delay
+assert.strictEqual(S.earliestDeparture({ state: 'flying', direction: 'return', landAt: now - 500 }, now, dur).at, now);
+assert.strictEqual(S.earliestDeparture({ state: 'flying', direction: 'return', landAt: now - 10 }, now, dur).at, now + 20);
 // flying home, lands in 10 min -> +30 s
 assert.strictEqual(S.earliestDeparture({ state: 'flying', direction: 'return', landAt: now + 600 }, now, dur).at, now + 630);
 // flying out to Mexico: land, +30 s, fly back
