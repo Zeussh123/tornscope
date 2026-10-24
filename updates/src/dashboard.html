@@ -168,6 +168,9 @@
   button.ghost { background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
   button.danger { background: var(--bad); color: #fff; }
   button.sm { padding: 6px 10px; font-size: 13px; }
+  #refresh { display: inline-flex; align-items: center; gap: 6px; }
+  #refresh.spin .ri { animation: ri-spin .8s linear infinite; }
+  @keyframes ri-spin { to { transform: rotate(360deg); } }
   button[disabled] { opacity: .5; cursor: not-allowed; }
   input, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; max-width: 100%; }
   input[type=checkbox] { width: 18px; height: 18px; padding: 0; accent-color: var(--accent); }
@@ -248,7 +251,7 @@
       <div class="grow"><strong id="crumb">Overview</strong></div>
       <a class="prem-chip off" id="premChip" href="#/premium" hidden></a>
       <span class="badge" id="syncBadge" title="Last refresh">…</span>
-      <button class="ghost sm" id="refresh" type="button">Refresh</button>
+      <button class="ghost sm" id="refresh" type="button" title="Refresh now"><svg class="ri" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg> Refresh</button>
       <button class="ghost sm" id="themeBtn" type="button" aria-label="Change theme">Theme</button>
     </header>
     <main class="content" id="view" tabindex="-1"></main>
@@ -404,7 +407,12 @@
     renderNav(); updateBadge(); updateChip();
   }
   function initBrand() { const b = $('#brandLogo'); if (b && !b.firstChild) b.innerHTML = LOGO; }
-  function updateBadge() { const b = $('#syncBadge'); b.textContent = 'Updated ' + pad(new Date(S.lastLoad).getHours()) + ':' + pad(new Date(S.lastLoad).getMinutes()); }
+  function updateBadge() {
+    const b = $('#syncBadge'); if (!S.lastLoad) return;
+    const d = new Date(S.lastLoad), sec = Math.max(0, Math.round((Date.now() - S.lastLoad) / 1000));
+    b.textContent = 'Updated ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + (sec < 60 ? ' \u00b7 ' + sec + 's ago' : ' \u00b7 ' + Math.floor(sec / 60) + ' min ago');
+    b.title = 'Last refresh \u2014 the data reloads by itself every minute';
+  }
 
   /* ================= routing ================= */
   // Line icons (24x24, stroke = currentColor) so they follow the theme and the active state.
@@ -1886,7 +1894,12 @@
 
   /* ================= boot ================= */
   $('#logout').addEventListener('click', async () => { await api('POST', '/logout'); location.replace('/app'); });
-  $('#refresh').addEventListener('click', async () => { await loadAll(false); go(true); toast('Data refreshed.'); });
+  $('#refresh').addEventListener('click', async () => {
+    const btn = $('#refresh'); if (btn.classList.contains('spin')) return;
+    btn.classList.add('spin');
+    try { await loadAll(false); go(true); toast('Data refreshed.'); } finally { btn.classList.remove('spin'); }
+  });
+  setInterval(() => { if (!document.hidden && S.lastLoad) updateBadge(); }, 10000);
   $('#themeBtn').addEventListener('click', () => { const cur = document.documentElement.getAttribute('data-theme'); setTheme(cur === 'dark' ? 'light' : 'dark'); });
   $('#burger').addEventListener('click', () => document.body.classList.toggle('menu'));
   $('#scrim').addEventListener('click', () => document.body.classList.remove('menu'));

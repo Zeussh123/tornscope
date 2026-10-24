@@ -1,8 +1,16 @@
 TORNSCOPE - CHANGELOG & NEW FEATURES
 ====================================
 Newest first. Website/Worker = worker file in this folder. Script = TornScope.user.js.
-Rebuild the Worker: node tools/build-worker.mjs worker3.25.2.mjs updates/src/dashboard.html updates/worker3.26.0.mjs 3.25.2 3.26.0
+Rebuild the Worker: node tools/build-worker.mjs worker3.25.2.mjs updates/src/dashboard.html updates/worker3.26.1.mjs 3.25.2 3.26.1
 (The dashboard is edited as a normal HTML file in updates/src/dashboard.html.)
+
+------------------------------------------------------------
+v3.26.1 (Worker) / v3.6 (Script)  -  2026-10-24  -  "Always know how fresh the data is"
+------------------------------------------------------------
+NEW / UI
+ - Top bar: the "Updated 12:04" badge now also shows the age ("Updated 12:04 . 35s ago") and ticks
+   every 10 s, so you can see at a glance how fresh the data is.
+ - Refresh button: refresh icon that spins while loading (and ignores double clicks).
 
 ------------------------------------------------------------
 v3.26.0 (Worker) / v3.6 (Script)  -  2026-10-24  -  "No more jumping"
@@ -39,7 +47,7 @@ Earlier history (from the existing repository)
 ------------------------------------------------------------
 BACKLOG (ideas, one step per hourly check-up; keep the UI light, no clutter)
 ------------------------------------------------------------
- [ ] Small "Updated 12:04" indicator + manual refresh button (no more silent surprises)
+ [x] Small "Updated 12:04" indicator + manual refresh button (v3.26.1)
  [ ] Country flags / plane icons on destinations and in tables
  [ ] Skeleton loaders instead of blank views during refresh
  [ ] Overview: next-landing countdown card

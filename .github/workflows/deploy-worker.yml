@@ -12,7 +12,7 @@ jobs:
       - name: Build Worker from the editable dashboard
         run: |
           mkdir -p dist
-          node tools/build-worker.mjs worker3.25.2.mjs updates/src/dashboard.html dist/worker.mjs 3.25.2 3.26.0
+          node tools/build-worker.mjs worker3.25.2.mjs updates/src/dashboard.html dist/worker.mjs 3.25.2 3.26.1
           node --check dist/worker.mjs
       - name: Deploy
         run: npx --yes wrangler@4 deploy
