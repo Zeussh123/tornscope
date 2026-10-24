@@ -1,0 +1,20 @@
+TORNSCOPE - CHANGELOG
+(Newest first. One entry per improvement round.)
+
+=== 3.6 - 2026-10-24 (round 1: refresh bugs) ===
+FIXED
+ - Website: the automatic refresh (every 60 s) rebuilt the whole page, so if you
+   were scrolled down you were thrown back to the top / the page flickered.
+   The page height and scroll position are now kept during a silent refresh.
+ - Website: the automatic refresh now repaints only when the data really changed
+   (or every 5 min to keep "x min ago" texts fresh). No change = no visible refresh.
+ - Overlay: the target cards were fully rebuilt every second. This restarted the
+   yellow "flash" animation, reset hover and could close the aircraft dropdown.
+   Cards are now updated in place (only the text that changed is touched).
+ - Overlay: the countdown no longer freezes while the aircraft dropdown is open.
+CHANGED
+ - Script version 3.5 -> 3.6.
+DEV
+ - The dashboard HTML now lives in site/dashboard.html (readable, editable).
+   Run `node tools/build-worker.mjs worker3.25.2.mjs` to embed it in the worker.
+

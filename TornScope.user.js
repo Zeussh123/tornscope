@@ -3,7 +3,7 @@
 // @namespace    tornscope
 // @homepageURL  https://app.tornscope.com
 // @supportURL   https://app.tornscope.com
-// @version      3.5
+// @version      3.6
 // @description  Track Torn players: flights, landings, alarms, War mode and Premium server tracking. Works with the TornScope site and Torn PDA | Developer: Zeussh (4268037)
 // @match        https://www.torn.com/*
 // @run-at       document-end
@@ -27,7 +27,7 @@
   const ABROAD = 20000;        // target abroad
   const OTHER = 30000;         // hospital, jail...
   const ONLINE_WINDOW = 300;   // seconds: active within the last 5 min = "online"
-  const VERSION = '3.4';
+  const VERSION = '3.6';
   const TRAVEL_URL = 'https://www.torn.com/page.php?sid=travel';
   const SITE_URL = 'https://app.tornscope.com';
   const LOGO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><g stroke="currentColor" stroke-linecap="round" fill="none"><circle cx="32" cy="32" r="29" stroke-width="3"/><circle cx="32" cy="32" r="19" stroke-width="2" stroke-opacity=".75"/><circle cx="32" cy="32" r="9" stroke-width="2" stroke-opacity=".75"/><path d="M32 4v13M32 47v13M4 32h13M47 32h13" stroke-width="1.5" stroke-opacity=".5"/></g><path d="M32 32L41.0 4.4A29 29 0 0 1 48.8 8.4Z" fill="#16D9F2" fill-opacity="0.07"/><path d="M32 32L48.8 8.4A29 29 0 0 1 55.2 14.5Z" fill="#16D9F2" fill-opacity="0.12"/><path d="M32 32L55.2 14.5A29 29 0 0 1 59.3 22.3Z" fill="#16D9F2" fill-opacity="0.19"/><path d="M32 32L59.3 22.3A29 29 0 0 1 61.0 31.0Z" fill="#16D9F2" fill-opacity="0.3"/><path d="M32 32L61.0 31.0" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="47" cy="19" r="3.6" fill="var(--blip,#fff)" fill-opacity=".2"/><circle cx="47" cy="19" r="2.3" fill="var(--blip,#fff)"/><circle cx="41" cy="11.5" r="1.5" fill="var(--blip,#fff)" fill-opacity=".85"/><circle cx="32" cy="32" r="3" fill="currentColor"/></svg>';
@@ -1185,15 +1185,21 @@
     return L.state || '—';
   }
 
+  // Cards are updated in place (keyed by target id): no full rebuild every second, so the
+  // flash animation, hover, scroll position and the aircraft dropdown are left untouched.
+  const setHTML = (el, html) => { if (el._h !== html) { el._h = html; el.innerHTML = html; } };
+  const setClass = (el, cls) => { if (el.className !== cls) el.className = cls; };
   function renderCards() {
     const c = $('#cards'), now = Date.now();
     if (!targets.length) {
       const msgText = unverified()
         ? (sync.state === 'auth' ? 'Overlay token rejected.<br>Open Settings to fix it or Disconnect.' : 'Waiting for the sync server…')
         : 'No targets.<br>Add a player ID below.';
-      c.innerHTML = '<div class="empty">' + msgText + '</div>'; return;
+      c._cards = null; setHTML(c, '<div class="empty">' + msgText + '</div>'); return;
     }
-    c.innerHTML = targets.map(t => {
+    if (!c._cards) { c._h = null; c.textContent = ''; c._cards = {}; }
+    const keep = {};
+    targets.forEach((t, i) => {
       const L = ensureLive(t), fl = L.flash > now, dest = destOf(L.desc), ret = isReturn(L.desc);
       let line, prog = '';
       if (L.state === 'Traveling') {
@@ -1204,22 +1210,36 @@
           line += ` <i>· lands ${esc(hhmm(L.until))} (in ${fmtDur(left)})</i>`;
           let t0 = L.t0;
           if (!t0 && BASE_MIN[dest]) { const f = (PLANES.find(([n]) => n === (t.plane || 'Airstrip')) || [0, 1])[1]; t0 = L.until * 1000 - BASE_MIN[dest] * f * 60000; }
-          if (t0 && L.until * 1000 > t0) prog = `<div class="pb"><i style="width:${Math.min(100, Math.max(0, (now - t0) / (L.until * 1000 - t0) * 100)).toFixed(1)}%"></i></div>`;
+          if (t0 && L.until * 1000 > t0) prog = Math.min(100, Math.max(0, (now - t0) / (L.until * 1000 - t0) * 100));
         } else line += ' <i>· landing time unknown</i>';
       } else if (L.state === 'Abroad') line = 'In ' + esc(dest || L.desc.replace(/^In /i, ''));
       else line = esc(L.desc || '—');
       const src = L.state === 'Traveling' && L.until ? (L.untilSrc === 'api' ? '<span class="v">✓ Torn</span>' : '<span class="e">≈ est.</span>') : '';
       const info = L.err ? `<span class="err">${esc(L.err)}</span>`
         : (running && L.seen ? `last action ${esc(L.rel || '?')} · ${MODES[L.mode] ? MODES[L.mode]() : '—'}` : (running ? 'first check…' : 'paused'));
-      const plane = `<select data-plane="${esc(t.id)}" title="Aircraft used to estimate this player's flights" aria-label="Aircraft for ${esc(t.name || t.id)}">
-            ${PLANES.map(([name]) => `<option value="${esc(name)}"${(t.plane || 'Airstrip') === name ? ' selected' : ''}>✈ ${esc(name)}</option>`).join('')}</select>`;
       const go = (L.state === 'Traveling' || L.state === 'Abroad') ? `<a class="go" href="${TRAVEL_URL}" title="Open Torn's travel page">Travel ↗</a>` : '';
-      return `<div class="card${fl ? ' flash' : ''}" style="--c:${COLORS[L.state] || '#64748b'}">
-        <div class="top"><span class="tn">${esc(t.name || 'Player')}</span><span class="id">[${esc(t.id)}]</span>
-          <span class="st">${esc(chip(L))}</span><button class="x" data-rm="${esc(t.id)}" title="Remove">×</button></div>
-        <div class="ln">${line}</div>${prog}
-        <div class="mt">${src}<span>${info}</span>${plane}${go}</div></div>`;
-    }).join('');
+      let el = c._cards[t.id];
+      if (!el) {
+        el = c._cards[t.id] = document.createElement('div');
+        el.innerHTML = `<div class="top"></div><div class="ln"></div><div class="pb" style="display:none"><i></i></div>
+          <div class="mt"><span class="src"></span><span class="inf"></span>
+          <select data-plane="${esc(t.id)}" title="Aircraft used to estimate this player's flights" aria-label="Aircraft">${PLANES.map(([name]) => `<option value="${esc(name)}">✈ ${esc(name)}</option>`).join('')}</select><span class="gos"></span></div>`;
+      }
+      keep[t.id] = 1;
+      setClass(el, 'card' + (fl ? ' flash' : ''));
+      el.style.setProperty('--c', COLORS[L.state] || '#64748b');
+      setHTML(el.children[0], `<span class="tn">${esc(t.name || 'Player')}</span><span class="id">[${esc(t.id)}]</span><span class="st">${esc(chip(L))}</span><button class="x" data-rm="${esc(t.id)}" title="Remove">×</button>`);
+      setHTML(el.children[1], line);
+      const pb = el.children[2];
+      if (prog === '') pb.style.display = 'none'; else { pb.style.display = ''; pb.firstChild.style.width = prog.toFixed(1) + '%'; }
+      const mt = el.children[3];
+      setHTML(mt.children[0], src); setHTML(mt.children[1], info); setHTML(mt.children[3], go);
+      const sel = mt.children[2], want = t.plane || 'Airstrip';
+      if (sel.value !== want && sel !== (root.getRootNode().activeElement || document.activeElement)) sel.value = want;
+      if (c.children[i] !== el) c.insertBefore(el, c.children[i] || null);
+    });
+    Object.keys(c._cards).forEach(id => { if (!keep[id]) { c._cards[id].remove(); delete c._cards[id]; } });
+    while (c.children.length > targets.length) c.lastChild.remove();
   }
 
   function premiumState() {
@@ -1276,9 +1296,7 @@
     renderHeader(); renderSync(); renderWar();
     const dotEl = $('#sdot');
     dotEl.className = 'dot ' + (sync.state === 'ok' ? 'ok' : (sync.state === 'offline' || sync.state === 'connecting') ? 'warn' : (sync.state === 'auth' || sync.state === 'error') ? 'bad' : '');
-    // Rebuilding the cards every second closes an open aircraft dropdown on mobile.
-    const active = root.getRootNode().activeElement || document.activeElement;
-    if (!(active && active.matches && active.matches('select[data-plane]'))) renderCards();
+    renderCards();
   }
 
   /* ----- Events ----- */
@@ -1437,7 +1455,7 @@
   });
 })();
 console.log(
-  '[TornScope 3.4] PDA_httpGet:',
+  '[TornScope 3.6] PDA_httpGet:',
   typeof window.PDA_httpGet,
   '| PDA_httpPost:',
   typeof window.PDA_httpPost

@@ -49,6 +49,9 @@ Premium can be obtained by sending Xanax in-game to the owner with the
 message "scope" (1 Xanax = 7 days; 14 days for members of the owner's faction
 or company). See the Premium page on the website for the details.
 
+UPDATES
+See updates/CHANGELOG.txt for what changed in each version and updates/ROADMAP.txt for upcoming ideas.
+
 SUPPORT
 Questions, bugs, suggestions: contact Zeussh [4268037] in Torn, or use the
 website https://app.tornscope.com

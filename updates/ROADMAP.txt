@@ -1,0 +1,17 @@
+TORNSCOPE - IDEAS BACKLOG (to be done step by step, hourly rounds)
+Not yet implemented. Ideas are inspired by common features of Torn fan tools
+(travel/stock trackers, war dashboards); to be refined as they are studied.
+
+UI
+ [ ] Icons on buttons and tabs (inline SVG, no external requests)
+ [ ] Country flags / destination icons on flight cards
+ [ ] Compact vs comfortable density switch
+ [ ] Skeleton loaders instead of blank states
+DATA / DATABASE
+ [ ] Export history as CSV / JSON
+ [ ] Server-side history pruning + indexes for faster dashboard load
+ [ ] Per-target notes and tags
+FEATURES
+ [ ] Landing-time sorting of all targets in one "Next landings" strip
+ [ ] Per-destination average flight duration stats
+ [ ] Notification quiet hours
