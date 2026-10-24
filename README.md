@@ -25,6 +25,9 @@ HOW TO INSTALL
     the overlay (a "Limited access" key is enough), then link your account.
  4. To create a TornScope account you need an invitation link from the owner.
 
+CHANGELOG
+See updates/CHANGELOG.txt and updates/NEW_FEATURES.txt.
+
 TORN PDA
 Torn PDA does not install scripts from a link. Copy the whole script and paste
 it in Torn PDA > Settings > Userscripts > Add a new script.

@@ -1,0 +1,2 @@
+NEW FEATURES - TORNSCOPE
+v3.6  Flicker-free live overlay (keyed card patching, scroll position preserved).

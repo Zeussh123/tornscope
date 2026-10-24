@@ -1,0 +1,22 @@
+TORNSCOPE - CHANGELOG
+(Newest first. Updated hourly by the improvement routine.)
+
+v3.6 - 2026-10-24
+  FIXED
+  - Scroll jump: the overlay re-rendered every second with innerHTML, which threw
+    the scroll position back to the top of the panel. Cards (Targets and War
+    tabs) are now patched one by one by player ID, only when their content changed.
+  - Open aircraft dropdown / text selection no longer closed by the refresh.
+  - Flashing "about to land" cards no longer restart their animation each second.
+  - Version mismatch: header said 3.5 while the in-app label and console said 3.4.
+  CHANGED
+  - Status line and feed on the War tab are only rewritten when their text changes.
+
+BACKLOG (ideas to ship step by step, one at a time)
+  - Country flags / icons on destination chips and buttons (inline SVG/emoji, no external host)
+  - Sort & filter targets (flying first, next landing first)
+  - Compact vs detailed card density toggle
+  - Export / import targets and flight history (JSON/CSV)
+  - Local flight-history stats: busiest destination, average flight time
+  - Better empty states and onboarding hints
+  - Dashboard (website) ideas: tornw3b-style clean tables, themed icons, data cleanup tools

@@ -3,7 +3,7 @@
 // @namespace    tornscope
 // @homepageURL  https://app.tornscope.com
 // @supportURL   https://app.tornscope.com
-// @version      3.5
+// @version      3.6
 // @description  Track Torn players: flights, landings, alarms, War mode and Premium server tracking. Works with the TornScope site and Torn PDA | Developer: Zeussh (4268037)
 // @match        https://www.torn.com/*
 // @run-at       document-end
@@ -27,7 +27,7 @@
   const ABROAD = 20000;        // target abroad
   const OTHER = 30000;         // hospital, jail...
   const ONLINE_WINDOW = 300;   // seconds: active within the last 5 min = "online"
-  const VERSION = '3.4';
+  const VERSION = '3.6';
   const TRAVEL_URL = 'https://www.torn.com/page.php?sid=travel';
   const SITE_URL = 'https://app.tornscope.com';
   const LOGO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><g stroke="currentColor" stroke-linecap="round" fill="none"><circle cx="32" cy="32" r="29" stroke-width="3"/><circle cx="32" cy="32" r="19" stroke-width="2" stroke-opacity=".75"/><circle cx="32" cy="32" r="9" stroke-width="2" stroke-opacity=".75"/><path d="M32 4v13M32 47v13M4 32h13M47 32h13" stroke-width="1.5" stroke-opacity=".5"/></g><path d="M32 32L41.0 4.4A29 29 0 0 1 48.8 8.4Z" fill="#16D9F2" fill-opacity="0.07"/><path d="M32 32L48.8 8.4A29 29 0 0 1 55.2 14.5Z" fill="#16D9F2" fill-opacity="0.12"/><path d="M32 32L55.2 14.5A29 29 0 0 1 59.3 22.3Z" fill="#16D9F2" fill-opacity="0.19"/><path d="M32 32L59.3 22.3A29 29 0 0 1 61.0 31.0Z" fill="#16D9F2" fill-opacity="0.3"/><path d="M32 32L61.0 31.0" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="47" cy="19" r="3.6" fill="var(--blip,#fff)" fill-opacity=".2"/><circle cx="47" cy="19" r="2.3" fill="var(--blip,#fff)"/><circle cx="41" cy="11.5" r="1.5" fill="var(--blip,#fff)" fill-opacity=".85"/><circle cx="32" cy="32" r="3" fill="currentColor"/></svg>';
@@ -935,6 +935,35 @@
   </div>`;
 
   const $ = (s) => root.querySelector(s);
+
+  // Flicker-free rendering: the overlay re-renders every second, so we never rewrite markup that has not changed
+  // and we patch keyed lists card by card. This keeps the scroll position, open dropdowns and CSS animations.
+  function setHTML(el, html) {
+    if (!el || el._h === html) return;
+    const top = el.scrollTop;
+    el.innerHTML = html; el._h = html; el._m = null;
+    if (top) el.scrollTop = top;
+  }
+  function patchList(el, items, emptyHtml) {
+    if (!el) return;
+    if (!items.length) { setHTML(el, emptyHtml || ''); return; }
+    const top = el.scrollTop;
+    if (!el._m) { el.innerHTML = ''; el._h = null; el._m = new Map(); }
+    const seen = new Set(), tpl = document.createElement('template');
+    items.forEach((it, i) => {
+      seen.add(it.k);
+      let e = el._m.get(it.k);
+      if (!e || e.h !== it.h) {
+        tpl.innerHTML = it.h;
+        const node = tpl.content.firstElementChild;
+        if (e) e.n.replaceWith(node);
+        e = { n: node, h: it.h }; el._m.set(it.k, e);
+      }
+      if (el.children[i] !== e.n) el.insertBefore(e.n, el.children[i] || null);
+    });
+    el._m.forEach((e, k) => { if (!seen.has(k)) { e.n.remove(); el._m.delete(k); } });
+    if (el.scrollTop !== top) el.scrollTop = top;
+  }
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmtDur = (s) => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
   const hhmm = (sec) => new Date(sec * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -1145,11 +1174,11 @@
     const list = Object.values(W.members), sec = Date.now() / 1000;
     const cnt = (s) => list.filter(m => m.state === s).length;
     $('#wsum').textContent = list.length ? `${W.name ? W.name + ' · ' : ''}${list.length} members · ✈ ${cnt('Traveling')} · abroad ${cnt('Abroad')} · hospital ${cnt('Hospital')}` : 'No list yet. Enter the enemy faction ID and press Sync.';
-    $('#wst').innerHTML = W.err ? `<span class="err">${esc(W.err)}</span>` : (W.pollAt ? `Updated ${hhmm(W.pollAt)} · every ${WAR_EVERY / 1000} s${running ? '' : ' · paused (press ▶)'}` : '');
+    setHTML($('#wst'), W.err ? `<span class="err">${esc(W.err)}</span>` : (W.pollAt ? `Updated ${hhmm(W.pollAt)} · every ${WAR_EVERY / 1000} s${running ? '' : ' · paused (press ▶)'}` : ''));
     const etaOf = (m) => { if (m.state === 'Traveling') { const L = warLand(m); return L ? L.at : 9e12; } return m.until || 9e12; };
     const rank = (m) => m.state === 'Traveling' ? 0 : m.state === 'Hospital' ? 1 : m.state === 'Abroad' ? 2 : 3;
     const shown = list.filter(m => W.all || rank(m) < 3).sort((a, b) => rank(a) - rank(b) || (rank(a) < 2 ? etaOf(a) - etaOf(b) : (b.la - a.la)));
-    $('#wlist').innerHTML = shown.map(m => {
+    patchList($('#wlist'), shown.map(m => {
       const c = WAR_COLORS[m.state] || '#64748b';
       let line = '', gap = '';
       if (m.state === 'Traveling') {
@@ -1163,10 +1192,10 @@
         }
       } else if (m.state === 'Hospital') line = m.until > sec ? `Hospital <i>· out in ${fmtDur(m.until - sec)}</i>` : 'Hospital <i>· out</i>';
       else line = esc(m.desc || m.state || '—');
-      return `<div class="card" style="--c:${c}"><div class="top"><span class="tn">${esc(m.name || m.id)}</span><span class="id">[${esc(m.id)}] L${m.level}</span><span class="st">${esc(m.state === 'Traveling' ? '✈ Traveling' : m.state || '—')}</span></div>` +
-        `<div class="ln">${line}</div><div class="mt"><span>active ${esc(ago(m.la))}</span>${gap ? '<span>' + gap + '</span>' : ''}<a class="go" href="https://www.torn.com/profiles.php?XID=${esc(m.id)}" target="_blank" rel="noopener noreferrer">Profile ↗</a></div></div>`;
-    }).join('') || (list.length ? '<div class="empty">Nobody is moving. Tick “Show everyone” to see the whole list.</div>' : '');
-    $('#wfeed').innerHTML = W.feed.map(f => `<div><i>${esc(new Date(f.at).toLocaleTimeString('en-GB'))}</i> ${esc(f.text)}</div>`).join('');
+      return { k: String(m.id), h: `<div class="card" style="--c:${c}"><div class="top"><span class="tn">${esc(m.name || m.id)}</span><span class="id">[${esc(m.id)}] L${m.level}</span><span class="st">${esc(m.state === 'Traveling' ? '✈ Traveling' : m.state || '—')}</span></div>` +
+        `<div class="ln">${line}</div><div class="mt"><span>active ${esc(ago(m.la))}</span>${gap ? '<span>' + gap + '</span>' : ''}<a class="go" href="https://www.torn.com/profiles.php?XID=${esc(m.id)}" target="_blank" rel="noopener noreferrer">Profile ↗</a></div></div>` };
+    }), list.length ? '<div class="empty">Nobody is moving. Tick “Show everyone” to see the whole list.</div>' : '');
+    setHTML($('#wfeed'), W.feed.map(f => `<div><i>${esc(new Date(f.at).toLocaleTimeString('en-GB'))}</i> ${esc(f.text)}</div>`).join(''));
   }
 
   function showTab(k) {
@@ -1191,9 +1220,9 @@
       const msgText = unverified()
         ? (sync.state === 'auth' ? 'Overlay token rejected.<br>Open Settings to fix it or Disconnect.' : 'Waiting for the sync server…')
         : 'No targets.<br>Add a player ID below.';
-      c.innerHTML = '<div class="empty">' + msgText + '</div>'; return;
+      setHTML(c, '<div class="empty">' + msgText + '</div>'); return;
     }
-    c.innerHTML = targets.map(t => {
+    patchList(c, targets.map(t => {
       const L = ensureLive(t), fl = L.flash > now, dest = destOf(L.desc), ret = isReturn(L.desc);
       let line, prog = '';
       if (L.state === 'Traveling') {
@@ -1214,12 +1243,12 @@
       const plane = `<select data-plane="${esc(t.id)}" title="Aircraft used to estimate this player's flights" aria-label="Aircraft for ${esc(t.name || t.id)}">
             ${PLANES.map(([name]) => `<option value="${esc(name)}"${(t.plane || 'Airstrip') === name ? ' selected' : ''}>✈ ${esc(name)}</option>`).join('')}</select>`;
       const go = (L.state === 'Traveling' || L.state === 'Abroad') ? `<a class="go" href="${TRAVEL_URL}" title="Open Torn's travel page">Travel ↗</a>` : '';
-      return `<div class="card${fl ? ' flash' : ''}" style="--c:${COLORS[L.state] || '#64748b'}">
+      return { k: String(t.id), h: `<div class="card${fl ? ' flash' : ''}" style="--c:${COLORS[L.state] || '#64748b'}${fl ? ';animation-delay:-' + (now % 1000) + 'ms' : ''}">
         <div class="top"><span class="tn">${esc(t.name || 'Player')}</span><span class="id">[${esc(t.id)}]</span>
           <span class="st">${esc(chip(L))}</span><button class="x" data-rm="${esc(t.id)}" title="Remove">×</button></div>
         <div class="ln">${line}</div>${prog}
-        <div class="mt">${src}<span>${info}</span>${plane}${go}</div></div>`;
-    }).join('');
+        <div class="mt">${src}<span>${info}</span>${plane}${go}</div></div>` };
+    }));
   }
 
   function premiumState() {
@@ -1437,7 +1466,7 @@
   });
 })();
 console.log(
-  '[TornScope 3.4] PDA_httpGet:',
+  '[TornScope ' + '3.6' + '] PDA_httpGet:',
   typeof window.PDA_httpGet,
   '| PDA_httpPost:',
   typeof window.PDA_httpPost
