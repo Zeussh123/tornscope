@@ -167,6 +167,8 @@
   button.ghost { background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
   button.danger { background: var(--bad); color: #fff; }
   button.sm { padding: 6px 10px; font-size: 13px; }
+  button.busy { opacity: .7; cursor: progress; }
+  .tfilter { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 16px; } .tfilter input { flex: 1 1 220px; max-width: 340px; }
   button[disabled] { opacity: .5; cursor: not-allowed; }
   input, select { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; max-width: 100%; }
   input[type=checkbox] { width: 18px; height: 18px; padding: 0; accent-color: var(--accent); }
@@ -573,7 +575,9 @@
     } }, input, h('button', { type: 'submit' }, 'Add'));
     view.appendChild(h('div', { class: 'card' }, h('h2', { text: 'Add a target' }), form, msg));
     const dep = S.events.filter(e => e.type === 'departure');
-    const rows = () => S.targets.map(t => ({ id: String(t.tornId), name: t.name || String(t.tornId), state: t.state, desc: t.description, seen: t.lastSeenAt, flights: dep.filter(e => String(e.targetId) === String(t.tornId)).length }));
+    const all = () => S.targets.map(t => ({ id: String(t.tornId), name: t.name || String(t.tornId), state: t.state, desc: t.description, seen: t.lastSeenAt, flights: dep.filter(e => String(e.targetId) === String(t.tornId)).length }));
+    // The filter lives outside the page so it survives the silent auto-refresh.
+    const rows = () => { const q = TFILTER.q.trim().toLowerCase(); return all().filter(r => (!TFILTER.state || r.state === TFILTER.state) && (!q || r.name.toLowerCase().indexOf(q) >= 0 || r.id.indexOf(q) >= 0)); };
     const targetsTable = dataTable({ rows: rows(), defaultSort: 'name', defaultDir: 'asc', onRow: (r) => { location.hash = '#/targets/' + r.id; },
       empty: empty('No targets', 'Add a Torn ID above.'),
       cols: [
@@ -589,8 +593,13 @@
             toast(x.data.message || (x.ok ? 'Removed.' : 'Failed.')); await loadAll(true); targetsTable.setRows(rows());
           } }, 'Remove') }
       ] });
+    const search = h('input', { type: 'search', placeholder: 'Search name or ID', 'aria-label': 'Search targets', value: TFILTER.q, oninput: () => { TFILTER.q = search.value; targetsTable.setRows(rows()); } });
+    const states = Array.from(new Set(S.targets.map(t => t.state).filter(Boolean))).sort();
+    const chips = h('div', { class: 'row' }, [['', 'All']].concat(states.map(x => [x, x])).map(([v, l]) => h('button', { type: 'button', class: 'pchip' + (TFILTER.state === v ? ' on' : ''), onclick: (ev) => { TFILTER.state = v; Array.from(chips.children).forEach(c => c.classList.toggle('on', c === ev.currentTarget)); targetsTable.setRows(rows()); } }, l)));
+    if (S.targets.length > 5) view.appendChild(h('div', { class: 'tfilter' }, search, chips));
     view.appendChild(h('div', { style: 'margin-top:16px' }, targetsTable.el));
   }
+  const TFILTER = { q: '', state: '' };
   function targetDetail(id) {
     const t = S.targets.find(x => String(x.tornId) === id);
     const ev = S.events.filter(e => String(e.targetId) === id);
@@ -1883,7 +1892,14 @@
 
   /* ================= boot ================= */
   $('#logout').addEventListener('click', async () => { await api('POST', '/logout'); location.replace('/app'); });
-  $('#refresh').addEventListener('click', async () => { await loadAll(false); go(true); toast('Data refreshed.'); });
+  $('#refresh').addEventListener('click', async () => {
+    const b = $('#refresh'); if (b.disabled) return;
+    b.disabled = true; b.classList.add('busy'); b.textContent = 'Refreshing…';
+    try { await loadAll(false); if (!typing()) go(true); toast('Data refreshed.'); }
+    finally { b.disabled = false; b.classList.remove('busy'); b.textContent = 'Refresh'; }
+  });
+  // Back on the tab after a while: catch up at once instead of showing stale data until the next tick.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - S.lastLoad > 60000) loadAll(true).then(() => { if (!typing() && ['overview', 'targets'].indexOf(route().page) >= 0 && !route().arg) go(true); updateBadge(); }); });
   $('#themeBtn').addEventListener('click', () => { const cur = document.documentElement.getAttribute('data-theme'); setTheme(cur === 'dark' ? 'light' : 'dark'); });
   $('#burger').addEventListener('click', () => document.body.classList.toggle('menu'));
   $('#scrim').addEventListener('click', () => document.body.classList.remove('menu'));
