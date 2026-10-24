@@ -1,7 +1,12 @@
-// Applies "planner uses my position" to a TornScope Worker file: node tools/apply-position-patch.mjs <in.mjs> <out.mjs>
-// Exact-anchor replacements only (each anchor must match exactly once); the rest of the file is left byte for byte as it was.
+// Builds the upgraded Worker from an original TornScope Worker file:
+//   node tools/apply-position-patch.mjs <in.mjs> <out.mjs>
+// 1. planner uses "my position" (+30 s after landing)            2. restock forecast by CYCLES (TSIM engine)
+// 3. GET /api/me/travel                                          4. admin "Simulations" page + /admin/sim/* endpoints
+// Exact-anchor replacements only (each anchor must match exactly once); everything else stays byte for byte.
 import fs from 'fs';
 const [inp, out] = process.argv.slice(2);
+const read = (f) => fs.readFileSync(new URL('../site-modules/' + f, import.meta.url), 'utf8');
+const between = (text, a, b) => { const i = text.indexOf(a), j = text.indexOf(b); if (i < 0 || j < 0) throw new Error('markers ' + a); return text.slice(i, j + b.length); };
 let src = fs.readFileSync(inp, 'utf8');
 
 function rep(text, a, b, label) {
@@ -9,8 +14,15 @@ function rep(text, a, b, label) {
   if (n !== 1) throw new Error('anchor "' + label + '" found ' + n + ' times (expected 1)');
   return text.replace(a, () => b);
 }
+function replaceBlock(text, startA, endA, b, label, mustContain) {
+  const i = text.indexOf(startA), j = text.indexOf(endA);
+  if (text.split(startA).length !== 2 || text.split(endA).length !== 2 || i < 0 || j < i) throw new Error('block anchors "' + label + '"');
+  const old = text.slice(i, j);
+  (mustContain || []).forEach(k => { if (!old.includes(k)) throw new Error('block "' + label + '" is not the expected code (missing ' + k + ')'); });
+  return text.slice(0, i) + b + text.slice(j);
+}
 
-/* ---------------- 1. Worker: GET /api/me/travel ---------------- */
+/* ================= Worker ================= */
 const TRAVEL_FN = `
 // ---- Player's own position for the planner ("Use my position"). Uses the stored personal key; the key is never returned.
 // Torn "travel": { destination, timestamp, departed, time_left }.
@@ -29,9 +41,11 @@ function travelToPos(data, now) {
   return { state: "torn", country: null, landAt: 0 };
 }
 `;
-src = rep(src, 'const TS_WORKER = {', TRAVEL_FN + '\nconst TS_WORKER = {', 'TS_WORKER');
+const sim = read('sim-worker.js');
+src = rep(src, 'let schemaReady = false;', between(sim, '/*WSIM-SCHEMA-BEGIN*/', '/*WSIM-SCHEMA-END*/') + '\n\nlet schemaReady = false;', 'schemaReady');
+src = rep(src, 'const TS_WORKER = {', TRAVEL_FN + '\n' + between(sim, '/*WSIM-BEGIN*/', '/*WSIM-END*/') + '\n\nconst TS_WORKER = {', 'TS_WORKER');
 
-const ROUTE = `    if (path === "/api/me/travel" && request.method === "GET") {
+const ROUTES = `    if (path === "/api/me/travel" && request.method === "GET") {
       const account = await getAccount(request, env);
       if (!account) return json({ ok: false, message: "Login required" }, 401);
       try {
@@ -58,48 +72,96 @@ const ROUTE = `    if (path === "/api/me/travel" && request.method === "GET") {
       }
     }
 
-`;
-src = rep(src, '    if (path === "/api/radar/stock" && request.method === "GET") {', ROUTE + '    if (path === "/api/radar/stock" && request.method === "GET") {', 'route');
+    if (path.startsWith("/admin/sim/")) {
+      const account = await getAccount(request, env);
+      if (!account) return json({ ok: false, message: "Login required" }, 401);
+      if (!requireAdmin(account)) return json({ ok: false, message: "Access denied" }, 403);
+      try { return await simApi(request, env, url, path); }
+      catch (error) { console.error("Simulation error:", error?.stack || String(error)); return json({ ok: false, message: "Simulation data failed" }, 500); }
+    }
 
-/* ---------------- 2. Dashboard page (decoded, edited, re-encoded) ---------------- */
+`;
+src = rep(src, '    if (path === "/api/radar/stock" && request.method === "GET") {', ROUTES + '    if (path === "/api/radar/stock" && request.method === "GET") {', 'routes');
+
+/* ================= Dashboard page ================= */
 const m = src.match(/^const DASHBOARD_HTML = (".*");$/m);
 if (!m) throw new Error('DASHBOARD_HTML line not found');
 let h = JSON.parse(m[1]);
 
-// planRows: leave at `start`
-h = rep(h, 'function planRows(ST, P, now) {\n    const out = [], q = String(P.q || \'\').trim().toLowerCase();',
-  'function planRows(ST, P, now, start) {\n    const out = [], q = String(P.q || \'\').trim().toLowerCase();\n    start = Math.max(now, start || now);', 'planRows head');
-h = rep(h, '        const land = now + dur;\n        const qtyLand = i.qty > 0 ? (rate > 0 ? Math.max(0, Math.floor(i.qty - rate * dur / 60)) : i.qty) : 0;',
-  '        const land = start + dur;\n        const qtyLand = i.qty > 0 ? (rate > 0 ? Math.max(0, Math.floor(i.qty - rate * (land - now) / 60)) : i.qty) : 0;', 'planRows land');
-h = rep(h, "units = Math.min(P.carry, afford, qtyLand); departAt = now; }\n        else if (i.nextRestockAt > 0) { avail = 'restock'; units = Math.min(P.carry, afford, i.restockQty > 0 ? i.restockQty : P.carry); departAt = Math.max(now, leaveAt); }",
-  "units = Math.min(P.carry, afford, qtyLand); departAt = start; }\n        else if (i.nextRestockAt > 0) {\n          departAt = Math.max(start, leaveAt);\n          const stockAtLand = i.restockQty > 0 ? i.restockQty - (rate > 0 ? rate * Math.max(0, departAt + dur - i.nextRestockAt) / 60 : 0) : P.carry;\n          avail = stockAtLand > 0 ? 'restock' : 'late';\n          units = avail === 'restock' ? Math.min(P.carry, afford, Math.floor(stockAtLand)) : 0;\n        }", 'planRows avail');
-
-// dayPlan: first trip not before `start`, 30 s after each return
-h = rep(h, 'function dayPlan(rows, P, now) {\n    const end = now + P.horizon * 3600, used = {}, trips = [];\n    let t = now;',
-  'function dayPlan(rows, P, now, start) {\n    start = Math.max(now, start || now);\n    const end = now + P.horizon * 3600, used = {}, trips = [];\n    let t = start;', 'dayPlan head');
-h = rep(h, "if (t > now + 60 && !(r.emptiesAt > 0 && t + r.dur < r.emptiesAt)) return; depart = t; }", "if (t > start + 60 && !(r.emptiesAt > 0 && t + r.dur < r.emptiesAt)) return; depart = t; }", 'dayPlan now');
-h = rep(h, 'trips.push(best); used[best.r.key] = true; t = best.back;', 'trips.push(best); used[best.r.key] = true; t = best.back + MY_DELAY;', 'dayPlan back');
-
-// position helpers (after fmtDur)
-const HELPERS = `
-  // ---- Player position: the first flight can only start after the current one has landed (+ MY_DELAY s to open the travel page)
+const NEW_PLAN = `  // ---- Player position: the first flight can only start after the current one has landed (+ MY_DELAY s to open the travel page)
   const MY_DELAY = 30;
   const MY_POS_OFF = { state: 'torn' };
   const myPos = () => RADAR_PLAN.pos && RADAR_PLAN.pos.state ? RADAR_PLAN.pos : MY_POS_OFF;
   function earliestDeparture(pos, now, dur) {
     if (!pos || pos.state === 'torn') return { at: now, why: '' };
     const ready = Math.max(now, (pos.landAt || 0) + MY_DELAY);
-    if (pos.state === 'flying' && pos.direction === 'return') return { at: ready, why: 'You land in Torn at ' };
+    if (pos.state === 'flying' && pos.direction === 'return') return { at: ready, why: 'You land in Torn, earliest take-off ' };
     const back = dur(pos.country) || 0;
     if (pos.state === 'flying') return { at: ready + back, why: 'You land in ' + pos.country + ' then must fly back. Earliest take-off from Torn ' };
     return { at: now + MY_DELAY + back, why: 'You are in ' + pos.country + ': fly back first. Earliest take-off from Torn ' };
   }
+  // One row per country/item with what a trip would earn if I leave at \`start\` (>= now). All times are unix seconds.
+  // The stock on landing is FORECAST with the restock cycles (TSIM): if I land in 6 h, it is the 3rd restock after now that counts, not the next one.
+  function planRows(ST, P, now, start) {
+    const out = [], q = String(P.q || '').trim().toLowerCase();
+    start = Math.max(now, start || now);
+    (ST.countries || []).forEach(c => {
+      if (P.countries && P.countries.indexOf(c.name) < 0) return;
+      const dur = (ST.travelSec && ST.travelSec[c.name] && ST.travelSec[c.name][P.type]) || 0; if (!dur) return;
+      c.items.forEach(i => {
+        if (P.types && P.types.indexOf(i.type || 'Other') < 0) return;
+        if (q && i.name.toLowerCase().indexOf(q) < 0) return;
+        const pu = i.market > 0 ? Math.round(i.market * P.sell / 100) - i.cost : null;
+        const rate = i.depletionNow > 0 ? i.depletionNow : (i.depletionMed || 0);
+        const d = TSIM.decide(i, P, now, start, dur);
+        const leaveAt = d.avail === 'restock' ? d.departAt : (i.nextRestockAt > 0 ? i.nextRestockAt + P.buffer - dur : 0);
+        const perHour = pu > 0 && d.units > 0 ? Math.round(d.units * pu / (2 * dur / 3600)) : 0;
+        out.push(Object.assign({}, i, { country: c.name, code: c.code, key: c.code + '|' + i.id, dur, pu, avail: d.avail, units: d.units, departAt: d.departAt, leaveAt, perHour, qtyLand: d.qtyLand, rate, tripProfit: pu > 0 ? d.units * pu : 0, fcK: d.k, fcConf: d.conf, fcRestockAt: d.restockAt }));
+      });
+    });
+    return out;
+  }
+  // Greedy day plan: always take the trip that earns the most per hour of elapsed time (waiting included). Every candidate is
+  // re-forecast for the moment I could really leave (t): after a trip I am back + MY_DELAY s later, and the stock has moved on.
+  function dayPlan(rows, P, now, start) {
+    start = Math.max(now, start || now);
+    const end = now + P.horizon * 3600, used = {}, trips = [];
+    let t = start;
+    while (trips.length < 14) {
+      let best = null;
+      rows.forEach(r => {
+        if (used[r.key] || !(r.pu > 0)) return;
+        const d = TSIM.decide(r, P, now, t, r.dur); if (d.units <= 0) return;
+        const depart = d.departAt, back = depart + 2 * r.dur; if (back > end) return;
+        const score = d.units * r.pu / (back - t);
+        if (!best || score > best.score) best = { r: Object.assign({}, r, { avail: d.avail, units: d.units, fcK: d.k, fcConf: d.conf, fcRestockAt: d.restockAt }), depart, land: depart + r.dur, back, score };
+      });
+      if (!best) break;
+      trips.push(best); used[best.r.key] = true; t = best.back + MY_DELAY;
+    }
+    return { trips, total: trips.reduce((a, x) => a + x.r.units * x.r.pu, 0) };
+  }
 `;
-h = rep(h, "  // One row per country/item with what a trip would earn. now = unix seconds.", HELPERS + "  // One row per country/item with what a trip would earn. now = unix seconds.", 'helpers');
+h = replaceBlock(h, '  // One row per country/item with what a trip would earn. now = unix seconds.\n  function planRows(', '  const compact = (n, money) =>', NEW_PLAN, 'planner block', ['const soldBy', 'function dayPlan']);
+// the engine itself (same source as the Worker tests)
+const engine = between(read('sim-engine.js'), '/*ENGINE-BEGIN*/', '/*ENGINE-END*/');
+h = rep(h, '  // ---- Player position: the first flight', engine + '\n  // ---- Player position: the first flight', 'engine');
 
-// first departure used by the list and the plan
 h = rep(h, "const P = RADAR_PLAN; let rows = planRows(ST, P, stNow());", "const P = RADAR_PLAN; let rows = planRows(ST, P, stNow(), firstDeparture().at);", 'filtered');
 h = rep(h, "const plan = dayPlan(rows, PL, now);", "const plan = dayPlan(rows, PL, now, firstDeparture().at);", 'plan call');
+h = rep(h, "clock(r.nextRestockAt)", "clock(r.fcRestockAt || r.nextRestockAt)", 'detail restock');
+h = rep(h, "clock(t.r.nextRestockAt)", "clock(t.r.fcRestockAt || t.r.nextRestockAt) + (t.r.fcK > 1 ? ' (cycle ' + t.r.fcK + ', forecast)' : '')", 'plan restock');
+
+h = replaceBlock(h, "      function takeoffCell(r) {", "      function itemDetail(r) {", `      function takeoffCell(r) {
+        const now = stNow();
+        const cyc = r.fcK > 0 ? h('span', { class: 'muted small', title: 'Forecast: restocks come about every ' + cad(r.cadenceMin) + ' (confidence ' + Math.round((r.fcConf || 0) * 100) + '%)', text: ' · restock #' + r.fcK + ' ' + clockHM(r.fcRestockAt) + ' est.' }) : null;
+        if (r.avail === 'now') return h('span', null, r.departAt > now + 5 ? h('b', { text: clock(r.departAt) }) : h('b', { class: 'ok-text', text: 'Now' }), h('span', { class: 'muted small', text: (r.departAt > now + 5 ? inTxt(r.departAt, now) : '') + (r.qtyLand > 0 ? ' · ~' + r.qtyLand.toLocaleString('en-US') + ' left on landing' : '') }), cyc);
+        if (r.avail === 'restock') return h('span', null, h('b', { text: clock(r.departAt) }), h('span', { class: 'muted small', text: r.departAt > now ? inTxt(r.departAt, now) : ' leave now' }), cyc);
+        if (r.avail === 'late') return h('span', { class: 'bad-text', text: 'Sold out by arrival' });
+        return h('span', { class: 'muted', text: 'no forecast yet' });
+      }
+`, 'takeoffCell', ["r.avail === 'restock'", "'Sold out by arrival'"]);
+
 h = rep(h, "      function planSide() {", `      const firstDeparture = () => earliestDeparture(myPos(), stNow(), (c) => (ST && ST.travelSec && ST.travelSec[c] && ST.travelSec[c][RADAR_PLAN.type]) || 0);
       // "My position" panel: read it from Torn (stored key) or type it. Times are entered in the clock chosen above (TCT / local).
       function posPanel() {
@@ -121,12 +183,13 @@ h = rep(h, "      function planSide() {", `      const firstDeparture = () => ea
       }
       function planSide() {`, 'planSide');
 h = rep(h, "          h('div', { class: 'small muted sec', text: 'Countries' }),", "          posPanel(),\n          h('div', { class: 'small muted sec', text: 'Countries' }),", 'planSide Countries');
-
-// take-off cell: "Now" becomes a clock time when I cannot leave yet
-h = rep(h, "        const now = stNow();\n        if (r.avail === 'now') return", "        const now = stNow();\n        if (r.avail === 'now' && r.departAt > now + 5) return h('span', null, h('b', { text: clock(r.departAt) }), h('span', { class: 'muted small', text: inTxt(r.departAt, now) + (r.qtyLand > 0 && r.rate > 0 ? ' · ~' + r.qtyLand.toLocaleString('en-US') + ' left on landing' : '') }));\n        if (r.avail === 'now') return", 'takeoffCell');
-
-// banner under the toolbar
 h = rep(h, "        // best routes: the best item of each country, three best countries", "        { const fd = firstDeparture(); if (fd.at > now + 1) main.appendChild(h('div', { class: 'note info' }, h('b', { text: 'My position. ' }), fd.why + clock(fd.at) + inTxt(fd.at, now) + '. Take-off times below start from then (' + MY_DELAY + ' s minimum after landing).')); }\n        // best routes: the best item of each country, three best countries", 'banner');
+
+// admin Simulations page
+h = rep(h, "  /* ================= PAGE: admin ================= */", between(read('sim-page.js'), '/*PSIM-BEGIN*/', '/*PSIM-END*/') + "\n  /* ================= PAGE: admin ================= */", 'sim page');
+h = rep(h, "['admin', '🛡', 'Admin']", "['admin', '🛡', 'Admin'], ['sim', '🧪', 'Simulations']", 'PAGES');
+h = rep(h, "      if (id === 'admin' && !(S.me && S.me.role === 'admin')) return;", "      if ((id === 'admin' || id === 'sim') && !(S.me && S.me.role === 'admin')) return;", 'renderNav');
+h = rep(h, "radar: radarPage, war: warPage, premium: premiumPage, settings, admin }", "radar: radarPage, war: warPage, premium: premiumPage, settings, admin, sim: simPage }", 'route map');
 
 src = src.replace(m[0], () => 'const DASHBOARD_HTML = ' + JSON.stringify(h).replace(/<\//g, '<\\/') + ';');
 fs.writeFileSync(out, src);

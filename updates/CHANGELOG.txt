@@ -1,6 +1,25 @@
 TORNSCOPE - CHANGELOG
 (newest first - updated at each automated check-up)
 
+=== Worker 3.25.2 + forecast by cycles + Simulations - 2026-10-24 (check-up #5) ===
+ANSWER: the planner only used the NEXT restock after "now" (stockNext = last + k*median gap). A 6 h absence ignored the later cycles.
+APPLIED in worker/worker3.25.2-position.mjs (rebuilt from worker3.25.2.mjs by tools/apply-position-patch.mjs):
+ - Forecast by cycles (site-modules/sim-engine.js, TSIM): restock times = last + k*median gap; stock on landing comes from the last restock
+   BEFORE landing (minus sales at the post-restock rate); if it would be sold out by then, the planner waits for the first restock it can still catch.
+   Confidence decays x0.85 per extra cycle. List, "Take off at" column ("restock #3 13:03 est."), best routes and day plan (re-forecast for each trip) use it.
+ - New admin page "Simulations" (nav, admin only) + /admin/sim/players|data|runs endpoints + table sim_runs (60 runs kept):
+     Follow a player: we take off N s (default 30, margin +-30) after him on the same route, check the recorded stock on landing
+       (change within the margin = "uncertain", no stock change around landing = "no data"), come back when he does, follow his next flights too.
+     Planner accuracy: at each step the planner decides with only what was known then; compared with the real stock on landing
+       (hit rate, leave-now vs restock trips, restock timing error).
+     Planned flights: check any list of flights (country; time; aircraft) against the recorded stock.
+     Several simulations can be queued and run one after the other; results are saved, reopened and deleted from the same page.
+   The maths run in the browser (no Worker CPU limit); the server only provides recorded data and stores results.
+ FLAGS: worker3.25.2.mjs has NO flag font (added in 3.25.3-3.25.6): the site is running an older version. Upload 3.25.6 and the patch is re-applied.
+ TESTED: tests/sim-e2e.test.cjs (real Worker + real page + synthetic history: endpoints, three kinds of simulation, queue, save/open/delete,
+   planner hit rate 90% on a synthetic world), tests/dashboard-position.test.cjs (incl. the 6 h absence -> restock cycle #3), tests/worker-me-travel.test.mjs,
+   unit tests site-modules/*.test.js.
+
 === Worker 3.25.2 + "my position" - 2026-10-24 (check-up #4) ===
 APPLIED in worker/worker3.25.2-position.mjs (complete file, built from worker3.25.2.mjs by tools/apply-position-patch.mjs)
  - Planner: "My position" panel (In Torn / Flying home / Flying out / Abroad, country, landing time) and a "Use my position" button.
