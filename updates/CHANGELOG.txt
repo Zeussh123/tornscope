@@ -1,0 +1,22 @@
+TORNSCOPE - CHANGELOG & NOUVELLES FONCTIONNALITES
+(mis a jour a chaque passage horaire; le plus recent en haut)
+
+== v3.6 ==
+CORRECTIONS
+ - Refresh visible / retour en haut: les listes (cartes cibles, liste War, flux War)
+   etaient reconstruites chaque seconde, ce qui remettait le scroll du panneau a 0.
+   Nouveau helper setHTML(): n'ecrit que si le contenu a change et restaure le scroll.
+ - Numero de version incoherent (en-tete 3.5, constante et log 3.4): tout est a 3.6.
+
+== v3.5 / v3.4 / v3.3 (historique) ==
+ - Mode War (suivi de faction ennemie, avion, heure d'atterrissage, "leave in").
+ - Alarme d'atterrissage, historique des vols, statut Premium, sync dashboard.
+
+IDEES A FAIRE (backlog, une etape par heure)
+ 1. Icones/drapeaux par pays sur les cartes et boutons (SVG inline, pas de requete externe).
+ 2. Tri/filtre rapide des cibles (en vol / hopital / ok) + recherche.
+ 3. Memorisation de l'onglet actif et de la position de scroll.
+ 4. Barre de progression de vol plus lisible + notification "atterrit dans 1 min".
+ 5. Theme/densite compacte pour mobile (Torn PDA).
+ 6. Export/import des cibles (JSON) pour la gestion de base de donnees.
+ NB: le site app.tornscope.com et sa base ne sont pas dans ce depot (seulement le userscript).
