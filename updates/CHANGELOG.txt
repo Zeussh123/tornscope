@@ -1,0 +1,28 @@
+TORNSCOPE - CHANGELOG & NEW FEATURES
+====================================
+Newest first. One entry per hourly improvement pass.
+
+v3.26.0  (2026-10-24)  Pass 1 - "No more jump to the top"
+---------------------------------------------------------
+FIXED
+ - Auto-refresh no longer throws you back to the top of the page. Cause: the view
+   was emptied and rebuilt (page height collapsed -> browser clamped the scroll) and
+   `html { scroll-behavior: smooth }` animated the scroll reset. Now the height is
+   frozen during the redraw and the scroll position is restored instantly.
+ - The 60 s refresh only re-renders when the data actually changed (targets / events),
+   so the page no longer flickers every minute for nothing.
+ - War page 30 s refresh uses the same scroll-preserving redraw.
+CHANGED
+ - Dashboard source is now readable: site/dashboard.html (it used to exist only as one
+   giant escaped string inside the Worker).
+ - tools/build.mjs injects site/dashboard.html into the Worker and bumps the version:
+     node tools/build.mjs worker3.25.2.mjs worker3.26.0.mjs 3.26.0
+   Deploy worker3.26.0.mjs. worker3.25.2.mjs is kept untouched as a rollback.
+
+IDEAS BACKLOG (next passes, one step at a time, keep the UI light)
+ - Icons/images on nav buttons and country flags in Countries / Targets.
+ - Faster Overview: cache events, load first page only then the rest.
+ - Torn-style status colours, compact mode, keyboard shortcuts.
+ - Faction/war: chain timer, hospital countdown, quick attack links.
+ - Database: indexes on events(target, at), pruning old events, export CSV/JSON.
+ - Inspiration to review: TornW3B (tornw3b.dev), Torn PDA scripts, TornTools, YATA, Torn Stats.
