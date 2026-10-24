@@ -3,7 +3,7 @@
 // @namespace    tornscope
 // @homepageURL  https://app.tornscope.com
 // @supportURL   https://app.tornscope.com
-// @version      3.5
+// @version      3.6
 // @description  Track Torn players: flights, landings, alarms, War mode and Premium server tracking. Works with the TornScope site and Torn PDA | Developer: Zeussh (4268037)
 // @match        https://www.torn.com/*
 // @run-at       document-end
@@ -27,7 +27,7 @@
   const ABROAD = 20000;        // target abroad
   const OTHER = 30000;         // hospital, jail...
   const ONLINE_WINDOW = 300;   // seconds: active within the last 5 min = "online"
-  const VERSION = '3.4';
+  const VERSION = '3.6';
   const TRAVEL_URL = 'https://www.torn.com/page.php?sid=travel';
   const SITE_URL = 'https://app.tornscope.com';
   const LOGO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><g stroke="currentColor" stroke-linecap="round" fill="none"><circle cx="32" cy="32" r="29" stroke-width="3"/><circle cx="32" cy="32" r="19" stroke-width="2" stroke-opacity=".75"/><circle cx="32" cy="32" r="9" stroke-width="2" stroke-opacity=".75"/><path d="M32 4v13M32 47v13M4 32h13M47 32h13" stroke-width="1.5" stroke-opacity=".5"/></g><path d="M32 32L41.0 4.4A29 29 0 0 1 48.8 8.4Z" fill="#16D9F2" fill-opacity="0.07"/><path d="M32 32L48.8 8.4A29 29 0 0 1 55.2 14.5Z" fill="#16D9F2" fill-opacity="0.12"/><path d="M32 32L55.2 14.5A29 29 0 0 1 59.3 22.3Z" fill="#16D9F2" fill-opacity="0.19"/><path d="M32 32L59.3 22.3A29 29 0 0 1 61.0 31.0Z" fill="#16D9F2" fill-opacity="0.3"/><path d="M32 32L61.0 31.0" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="47" cy="19" r="3.6" fill="var(--blip,#fff)" fill-opacity=".2"/><circle cx="47" cy="19" r="2.3" fill="var(--blip,#fff)"/><circle cx="41" cy="11.5" r="1.5" fill="var(--blip,#fff)" fill-opacity=".85"/><circle cx="32" cy="32" r="3" fill="currentColor"/></svg>';
@@ -1191,9 +1191,11 @@
       const msgText = unverified()
         ? (sync.state === 'auth' ? 'Overlay token rejected.<br>Open Settings to fix it or Disconnect.' : 'Waiting for the sync server…')
         : 'No targets.<br>Add a player ID below.';
-      c.innerHTML = '<div class="empty">' + msgText + '</div>'; return;
+      const emptyHtml = '<div class="empty">' + msgText + '</div>';
+      if (c._html !== emptyHtml) { c.innerHTML = emptyHtml; c._html = emptyHtml; }
+      return;
     }
-    c.innerHTML = targets.map(t => {
+    const html = targets.map(t => {
       const L = ensureLive(t), fl = L.flash > now, dest = destOf(L.desc), ret = isReturn(L.desc);
       let line, prog = '';
       if (L.state === 'Traveling') {
@@ -1220,6 +1222,12 @@
         <div class="ln">${line}</div>${prog}
         <div class="mt">${src}<span>${info}</span>${plane}${go}</div></div>`;
     }).join('');
+    // Only touch the DOM when something changed, and keep the list scroll position:
+    // rewriting identical HTML every second made the list jump and swallowed taps.
+    if (c._html === html) return;
+    const top = c.scrollTop;
+    c.innerHTML = html; c._html = html;
+    if (top) c.scrollTop = top;
   }
 
   function premiumState() {
@@ -1437,7 +1445,7 @@
   });
 })();
 console.log(
-  '[TornScope 3.4] PDA_httpGet:',
+  '[TornScope 3.6] PDA_httpGet:',
   typeof window.PDA_httpGet,
   '| PDA_httpPost:',
   typeof window.PDA_httpPost

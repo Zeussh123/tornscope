@@ -1,0 +1,19 @@
+# Deploys the TornScope Worker (built by tools/build-worker.mjs into dist/worker.mjs).
+name = "torn-travel-watcher"
+main = "dist/worker.mjs"
+compatibility_date = "2026-10-01"
+# Keep the variables/secrets already set in the Cloudflare dashboard (TORN_API_KEY, APP_SECRET, ...).
+keep_vars = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "torn-travel-watcher-db"
+database_id = "a6006344-a503-4e9d-a760-70feddadcbc3"
+
+# Taken from the Cloudflare dashboard (Settings > Triggers).
+[triggers]
+crons = ["*/1 * * * *"]
+
+# Public address of the site (SITE_URL in the Worker). If the dashboard shows other
+# Custom Domains / Routes for this Worker, add them here too.
+routes = [{ pattern = "app.tornscope.com", custom_domain = true }]

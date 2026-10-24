@@ -1,0 +1,21 @@
+name: Deploy Worker
+# Manual only: GitHub app > Actions > Deploy Worker > Run workflow (works from the phone).
+on:
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Build Worker from the editable dashboard
+        run: |
+          mkdir -p dist
+          node tools/build-worker.mjs worker3.25.2.mjs updates/src/dashboard.html dist/worker.mjs 3.25.2 3.26.0
+          node --check dist/worker.mjs
+      - name: Deploy
+        run: npx --yes wrangler@4 deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
