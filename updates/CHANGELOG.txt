@@ -1,0 +1,21 @@
+TORNSCOPE - CHANGELOG
+=====================
+Newest first. One entry per hourly improvement pass.
+Files: TornScope.user.js (script/overlay) | site/dashboard.html (website source)
+       | worker3.26.0.mjs (worker built from site/dashboard.html with tools/build-worker.mjs)
+
+[Pass 1] Script 3.6 / Worker 3.26.0 - 2026-10-24
+  FIXED
+  - Dashboard: the 60 s auto-refresh rebuilt the page and sent you back to the top
+    when you were scrolled down. The page height is now frozen during the rebuild
+    and the scroll position restored (Overview / Targets).
+  - Dashboard: War page (30 s refresh) had the same jump - fixed the same way.
+  - Dashboard: Radar page flickered / was clamped during its 30 s refresh - height
+    is now held until the new content is in place.
+  - Overlay: the target cards, War list and War feed were re-created every second.
+    Scrolling inside the overlay jumped back and the content blinked. Identical
+    markup is now skipped and scroll position is restored when it does change.
+  ADDED
+  - updates/ folder (this changelog + FEATURES.txt) and tools/build-worker.mjs, so
+    the dashboard can be edited as a normal HTML file (site/dashboard.html) and
+    rebuilt into a new worker file.

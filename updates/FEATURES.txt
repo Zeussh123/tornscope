@@ -1,0 +1,23 @@
+TORNSCOPE - FEATURES AND IDEAS BACKLOG
+======================================
+
+CURRENT FEATURES
+- Target tracking: flights, landings, abroad, hospital, jail, with alarm + notifications
+- Aircraft guess, flight history, statistics, countries view, alerts
+- War mode (enemy faction watch, "land together" calculator)
+- Radar (beta), Premium server-side tracking, dark/light theme
+- Works on Tampermonkey and Torn PDA
+
+HOW TO UPDATE THE SITE
+1. Edit site/dashboard.html
+2. node tools/build-worker.mjs <previous-worker>.mjs site/dashboard.html worker<new>.mjs <new version>
+3. Deploy the new worker file.
+
+BACKLOG (picked one step at a time, keep the UI light)
+- [ ] Icons/images on buttons and nav (replace the text glyphs), flags everywhere
+- [ ] "Last updated Xs ago" pill + manual refresh button on live pages
+- [ ] Skip a rebuild when data did not change (no needless redraw)
+- [ ] Faster dashboard load: paginate events instead of fetching up to 5000
+- [ ] Export history to CSV
+- [ ] Compact / comfortable density option
+- [ ] Review fan scripts and sites (tornw3b.dev, TornTools, etc.) for more ideas
